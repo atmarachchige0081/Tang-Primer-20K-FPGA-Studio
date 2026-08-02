@@ -3,7 +3,7 @@
 [![Quality gates](https://github.com/atmarachchige0081/Tang-FPGA-Studio/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/atmarachchige0081/Tang-FPGA-Studio/actions/workflows/quality-gates.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6c63ff.svg)](LICENSE)
 [![Desktop: Tauri + Rust](https://img.shields.io/badge/desktop-Tauri%20%2B%20Rust-4f9cff.svg)](studio/)
-[![Release: v2.0.0](https://img.shields.io/badge/release-v2.0.0-42d392.svg)](CHANGELOG.md)
+[![Release: v2.0.1](https://img.shields.io/badge/release-v2.0.1-42d392.svg)](CHANGELOG.md)
 
 An open-source, beginner-friendly FPGA IDE and development environment for
 Sipeed Tang Nano and Tang Primer boards. Simulate, inspect waveforms, lint,

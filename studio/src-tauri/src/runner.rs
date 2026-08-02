@@ -203,7 +203,8 @@ fn run_blocking(
             && programmer_started.is_some_and(|started| started.elapsed() >= PROGRAMMER_TIMEOUT)
         {
             termination_requested = true;
-            let message = "FPGA programmer timed out after 90 seconds; its process was stopped safely.";
+            let message =
+                "FPGA programmer timed out after 90 seconds; its process was stopped safely.";
             emit(&app, &job_id, action.as_str(), "system", message);
             push_captured(&mut captured, message.into());
             terminate_process_tree(process_id, &mut child);

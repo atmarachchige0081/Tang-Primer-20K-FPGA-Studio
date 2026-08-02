@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch] $SkipHdl
+    [switch] $SkipHdl,
+    [switch] $SkipNative
 )
 
 Set-StrictMode -Version Latest
@@ -81,10 +82,12 @@ try {
             'sim', '-Project', 'projects/05_serial_command_console', '-Testbench', 'sim/tb_top.sv', '-TestbenchTop', 'tb_top')
     }
 
-    Invoke-Checked npm @('--prefix', 'studio', 'run', 'check')
-    $cargo = Join-Path $env:USERPROFILE '.cargo\bin\cargo.exe'
-    if (-not (Test-Path -LiteralPath $cargo -PathType Leaf)) { throw 'Cargo is missing; run npm run desktop:doctor in studio.' }
-    Invoke-Checked $cargo @('test', '--manifest-path', 'studio/src-tauri/Cargo.toml', '--lib')
+    if (-not $SkipNative) {
+        Invoke-Checked npm @('--prefix', 'studio', 'run', 'check')
+        $cargo = Join-Path $env:USERPROFILE '.cargo\bin\cargo.exe'
+        if (-not (Test-Path -LiteralPath $cargo -PathType Leaf)) { throw 'Cargo is missing; run npm run desktop:doctor in studio.' }
+        Invoke-Checked $cargo @('test', '--manifest-path', 'studio/src-tauri/Cargo.toml', '--lib')
+    }
 
     Invoke-Checked git @('diff', '--check')
     Write-Host 'RELEASE CHECK PASSED' -ForegroundColor Green

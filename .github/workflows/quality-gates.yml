@@ -70,7 +70,7 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Parse PowerShell and JSON
         shell: pwsh
-        run: .\scripts\release-check.ps1 -SkipHdl
+        run: .\scripts\release-check.ps1 -SkipHdl -SkipNative
 
   hdl:
     name: HDL lint and self-checking simulation

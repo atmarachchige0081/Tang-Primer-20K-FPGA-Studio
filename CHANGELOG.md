@@ -2,6 +2,13 @@
 
 All notable user-facing changes are recorded here.
 
+## 2.0.1 — 2026-08-02
+
+- Kept packaged SPI teaching signals warning-free under the GitHub runner's
+  Verilator version while preserving the verified `0xA5` loopback behavior.
+- Split companion and native CI responsibilities so each clean job installs
+  only the dependencies it executes, and enforced canonical Rust formatting.
+
 ## 2.0.0 — 2026-08-02
 
 ### Added
