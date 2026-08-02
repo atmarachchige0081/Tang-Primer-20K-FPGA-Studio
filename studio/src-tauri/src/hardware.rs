@@ -1,12 +1,62 @@
 use crate::models::{SerialDevice, SerialEvent};
+use crate::security::{canonical_workspace, child_process_path, safe_existing_path};
 use chrono::Utc;
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
+
+pub fn launch_zadig(root: &str, project: &str) -> Result<String, String> {
+    #[cfg(not(windows))]
+    {
+        let _ = (root, project);
+        return Err("Zadig is only required for the Windows JTAG driver".into());
+    }
+
+    #[cfg(windows)]
+    {
+        let workspace = canonical_workspace(root)?;
+        let project_directory = safe_existing_path(&workspace, project)?;
+        if !project_directory.join("fpga.config.psd1").is_file() {
+            return Err("The active project has no fpga.config.psd1".into());
+        }
+        let process_workspace = child_process_path(&workspace);
+        let mut command = Command::new("powershell.exe");
+        command
+            .arg("-NoLogo")
+            .arg("-NoProfile")
+            .arg("-NonInteractive")
+            .arg("-ExecutionPolicy")
+            .arg("Bypass")
+            .arg("-File")
+            .arg(process_workspace.join("fpga.ps1"))
+            .arg("driver")
+            .arg("-Project")
+            .arg(project)
+            .current_dir(&process_workspace)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+        let output = command
+            .output()
+            .map_err(|error| format!("Cannot start the verified Zadig helper: {error}"))?;
+        if !output.status.success() {
+            let detail = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+            return Err(if detail.is_empty() {
+                "The verified Zadig helper could not be opened. Run '.\\fpga.ps1 driver' for details."
+                    .into()
+            } else {
+                detail
+            });
+        }
+        Ok("Verified Zadig opened. Configure Interface 0 as WinUSB, leave Interface 1 unchanged, then run Detect JTAG again.".into())
+    }
+}
 
 struct SerialSession {
     port: Arc<Mutex<Box<dyn SerialPort>>>,

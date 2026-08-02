@@ -131,6 +131,11 @@ export const bridge = {
     return [{ portName: "COM5", displayName: "Tang Primer Debugger UART (preview)", likelyBoard: true }];
   },
 
+  async launchZadig(root: string, project: string): Promise<string> {
+    if (isDesktop()) return invoke<string>("launch_zadig", { root, project });
+    return "Browser preview: verified Zadig would open for JTAG Interface 0.";
+  },
+
   async connectSerial(portName: string, baudRate: number, sessionId: string): Promise<void> {
     if (isDesktop()) await invoke("connect_serial", { portName, baudRate, sessionId });
   },

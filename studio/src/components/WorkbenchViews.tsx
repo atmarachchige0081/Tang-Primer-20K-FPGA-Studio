@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Background, Controls, Handle, MiniMap, Position, ReactFlow, type NodeProps } from "@xyflow/react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Activity, ArrowRight, BookOpen, Box, Cable, CheckCircle2, ChevronRight, CircuitBoard, Clock3, Cpu, Gauge, Lightbulb, Maximize2, MemoryStick, Minus, Network, Play, Plus, RefreshCw, Search, ShieldCheck, Sparkles, TerminalSquare, Waves, Zap } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Box, Cable, CheckCircle2, ChevronRight, CircuitBoard, Clock3, Cpu, ExternalLink, Gauge, Lightbulb, Maximize2, MemoryStick, Minus, Network, Play, Plus, RefreshCw, Search, ShieldCheck, Sparkles, TerminalSquare, Waves, Zap } from "lucide-react";
 import { bridge } from "../lib/bridge";
+import { needsJtagDriverRepair } from "../lib/hardware";
 import { busPaths, formatSignalValue, formatVcdTime, scalarPoints, visibleTransitions, type WaveWindow } from "../lib/waveform";
 import { useWorkbench } from "../store/workbench";
 import type { BuildHistoryEntry, NetlistGraph, SerialDevice, WaveformData } from "../types";
@@ -208,16 +209,40 @@ export function HardwareView(): React.JSX.Element {
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [jtag, setJtag] = useState<"unchecked" | "checking" | "ready" | "blocked">("unchecked");
+  const [driverState, setDriverState] = useState<"idle" | "launching" | "opened" | "failed">("idle");
+  const [driverError, setDriverError] = useState<string | null>(null);
   const scan = async () => { setScanning(true); setScanError(null); try { setDevices(await bridge.serialDevices()); } catch (reason) { setScanError(reason instanceof Error ? reason.message : String(reason)); } finally { setScanning(false); } };
   useEffect(() => { void scan(); }, []);
+
+  const openDriver = async (automatic = false) => {
+    const jobId = `jtag-driver-${Date.now()}`;
+    setDriverState("launching");
+    setDriverError(null);
+    setBottomPanel("output");
+    appendOutput({ jobId, phase: "driver", stream: "system", message: automatic ? "Windows can see the programmer but cannot open JTAG Interface 0. Opening the verified Zadig repair helper…" : "Opening the verified Zadig repair helper…", timestamp: new Date().toISOString() });
+    try {
+      const message = await bridge.launchZadig(root, project);
+      setDriverState("opened");
+      appendOutput({ jobId, phase: "driver", stream: "system", message, timestamp: new Date().toISOString() });
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : String(reason);
+      setDriverState("failed");
+      setDriverError(message);
+      appendOutput({ jobId, phase: "driver", stream: "stderr", message: `Zadig could not be opened automatically: ${message}`, timestamp: new Date().toISOString() });
+    }
+  };
+
   const detect = async () => {
     const jobId = `jtag-detect-${Date.now()}`;
     setJtag("checking");
+    setDriverState("idle");
+    setDriverError(null);
     setBottomPanel("output");
     try {
       const result = await bridge.run(root, project, "detect", jobId);
       setJtag(result.success ? "ready" : "blocked");
       appendOutput({ jobId, phase: "detect", stream: result.success ? "system" : "stderr", message: result.success ? "JTAG chain detected successfully." : "JTAG detection failed. On Tang Primer 20K, verify that only Interface 0 uses WinUSB.", timestamp: new Date().toISOString() });
+      if (needsJtagDriverRepair(result)) await openDriver(true);
     } catch (reason) {
       setJtag("blocked");
       appendOutput({ jobId, phase: "detect", stream: "stderr", message: reason instanceof Error ? reason.message : String(reason), timestamp: new Date().toISOString() });
@@ -225,7 +250,22 @@ export function HardwareView(): React.JSX.Element {
   };
   const usbPresent = devices.some((device) => device.likelyBoard);
   const jtagLabel = jtag === "ready" ? "JTAG verified" : jtag === "checking" ? "Checking JTAG…" : jtag === "blocked" ? "JTAG needs attention" : "JTAG not checked";
-  return <section className="feature-view"><div className="feature-header"><div><p className="eyebrow">Connected systems</p><h1>Hardware manager</h1><p>Inspect programmers, target boards, and serial interfaces before programming.</p></div><button className="primary-button" onClick={() => void scan()} disabled={scanning}><RefreshCw className={scanning ? "spin" : ""} size={15}/> Scan devices</button></div><div className="hardware-grid"><article className="device-card featured"><div className="device-visual"><CircuitBoard size={42}/>{usbPresent && <span className="pulse-ring"/>}</div><div><span className={usbPresent ? "status-good" : "tag"}>{usbPresent ? "USB INTERFACE FOUND" : "BOARD PROFILE LOADED"}</span><h2>Tang Primer 20K</h2><p>GW2A-LV18PG256C8/I7 · 20,736 LUT4</p><div className="device-facts"><span><Clock3 size={14}/> 27 MHz</span><span><Zap size={14}/> 3.3 V I/O</span><span className={jtag === "blocked" ? "fact-error" : jtag === "ready" ? "fact-good" : ""}><ShieldCheck size={14}/> {jtagLabel}</span></div></div><button className="secondary-button" onClick={() => void detect()} disabled={jtag === "checking"}>{jtag === "checking" ? <RefreshCw className="spin" size={14}/> : <ArrowRight size={14}/>} Detect JTAG</button></article><article className="panel-card"><div className="card-title"><div><h2>Serial interfaces</h2><p>Detected local COM endpoints</p></div><Cable size={19}/></div>{scanError ? <div className="empty-small">{scanError}</div> : devices.length ? devices.map((device) => <div className="interface-row" key={device.portName}><div className="port-icon"><TerminalSquare size={17}/></div><div><strong>{device.portName}</strong><span>{device.displayName}</span></div>{device.likelyBoard && <span className="tag">Likely board UART</span>}</div>) : <div className="empty-small">No serial devices detected.</div>}</article></div>{jtag === "blocked" && <article className="driver-guidance"><ShieldCheck size={20}/><div><h3>JTAG driver requires attention</h3><p>In Zadig choose <strong>JTAG Debugger (Interface 0)</strong> and install WinUSB. Leave Interface 1 unchanged—on this board it provides the UART COM port.</p></div></article>}<article className="safety-card"><ShieldCheck size={22}/><div><h3>Safe programming workflow</h3><p>SRAM upload is volatile. Flash persists after power-off and asks for confirmation before the write starts. FPGA Studio never replaces drivers automatically.</p></div></article></section>;
+  const driverStatus = driverState === "launching" ? "Opening verified Zadig…" : driverState === "opened" ? "Zadig is open" : driverState === "failed" ? "Automatic launch failed" : "Repair available";
+  return <section className="feature-view">
+    <div className="feature-header"><div><p className="eyebrow">Connected systems</p><h1>Hardware manager</h1><p>Inspect programmers, target boards, and serial interfaces before programming.</p></div><button className="primary-button" onClick={() => void scan()} disabled={scanning}><RefreshCw className={scanning ? "spin" : ""} size={15}/> Scan devices</button></div>
+    {jtag === "blocked" && <article className="driver-guidance">
+      <ShieldCheck size={22}/><div className="driver-guide-body"><div className="driver-guide-title"><div><h3>Repair JTAG Interface 0</h3><p>FPGA Studio detected the Windows driver problem and launches the verified Zadig helper automatically.</p></div><span className={`driver-state ${driverState}`}>{driverState === "launching" && <RefreshCw className="spin" size={12}/>} {driverStatus}</span></div>
+      <ol><li>In Zadig, open <strong>Options → List All Devices</strong>.</li><li>Select <strong>JTAG Debugger (Interface 0)</strong> or <strong>USB Serial Converter A</strong>.</li><li>Confirm it is <strong>Interface 0 / MI_00</strong> with USB ID <code>0403:6010</code>.</li><li>Choose <strong>WinUSB</strong>, then click <strong>Replace Driver</strong>.</li><li>Close Zadig and click <strong>Detect again</strong> below.</li></ol>
+      <div className="driver-safety"><ShieldCheck size={15}/><span><strong>Never select Interface 1 / MI_01.</strong> It supplies the UART COM port and should keep its FTDI serial driver.</span></div>
+      {driverError && <p className="driver-error">{driverError}</p>}
+      <div className="driver-actions"><button className="secondary-button" onClick={() => void openDriver()} disabled={driverState === "launching"}><ExternalLink size={14}/> {driverState === "opened" ? "Open Zadig again" : "Open Zadig"}</button><button className="primary-button" onClick={() => void detect()} disabled={driverState === "launching"}><RefreshCw size={14}/> Detect again</button></div></div>
+    </article>}
+    <div className="hardware-grid">
+      <article className="device-card featured"><div className="device-visual"><CircuitBoard size={42}/>{usbPresent && <span className="pulse-ring"/>}</div><div><span className={usbPresent ? "status-good" : "tag"}>{usbPresent ? "USB INTERFACE FOUND" : "BOARD PROFILE LOADED"}</span><h2>Tang Primer 20K</h2><p>GW2A-LV18PG256C8/I7 · 20,736 LUT4</p><div className="device-facts"><span><Clock3 size={14}/> 27 MHz</span><span><Zap size={14}/> 3.3 V I/O</span><span className={jtag === "blocked" ? "fact-error" : jtag === "ready" ? "fact-good" : ""}><ShieldCheck size={14}/> {jtagLabel}</span></div></div><button className="secondary-button" onClick={() => void detect()} disabled={jtag === "checking" || driverState === "launching"}>{jtag === "checking" ? <RefreshCw className="spin" size={14}/> : <ArrowRight size={14}/>} Detect JTAG</button></article>
+      <article className="panel-card"><div className="card-title"><div><h2>Serial interfaces</h2><p>Detected local COM endpoints</p></div><Cable size={19}/></div>{scanError ? <div className="empty-small">{scanError}</div> : devices.length ? devices.map((device) => <div className="interface-row" key={device.portName}><div className="port-icon"><TerminalSquare size={17}/></div><div><strong>{device.portName}</strong><span>{device.displayName}</span></div>{device.likelyBoard && <span className="tag">Likely board UART</span>}</div>) : <div className="empty-small">No serial devices detected.</div>}</article>
+    </div>
+    <article className="safety-card"><ShieldCheck size={22}/><div><h3>Safe programming workflow</h3><p>SRAM upload is volatile. Flash persists after power-off and asks for confirmation before the write starts. FPGA Studio may open the verified driver helper, but it never selects a device or replaces a driver automatically.</p></div></article>
+  </section>;
 }
 
 interface UartLine { time: string; direction: "rx" | "tx" | "status" | "error"; text: string }

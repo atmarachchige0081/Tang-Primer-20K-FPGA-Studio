@@ -272,9 +272,20 @@ kbd { padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; backg
 .safety-card h3 { margin: 0 0 4px; font-size: 13px; }
 .safety-card p { margin: 0; color: var(--text-soft); line-height: 1.5; }
 .driver-guidance { display: flex; gap: 12px; margin-top: 12px; padding: 15px 17px; border: 1px solid color-mix(in srgb, var(--amber) 45%, var(--line)); border-radius: 9px; background: rgb(251 191 36 / 7%); }
-.driver-guidance svg { flex: 0 0 auto; color: var(--amber); }
+.driver-guidance > svg { flex: 0 0 auto; color: var(--amber); }
 .driver-guidance h3 { margin: 0 0 4px; font-size: 13px; }
 .driver-guidance p { margin: 0; color: var(--text-soft); line-height: 1.5; }
+.driver-guide-body { min-width: 0; flex: 1; }
+.driver-guide-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.driver-state { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border: 1px solid color-mix(in srgb, var(--amber) 42%, var(--line)); border-radius: 999px; color: var(--amber); background: var(--surface); font-size: 9px; font-weight: 700; }
+.driver-state.opened { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); color: var(--green); }
+.driver-state.failed { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); color: var(--red); }
+.driver-guidance ol { display: grid; gap: 6px; margin: 13px 0; padding-left: 22px; color: var(--text-soft); font-size: 11px; line-height: 1.45; }
+.driver-guidance code { padding: 1px 4px; border-radius: 3px; background: var(--surface); color: var(--accent-strong); }
+.driver-safety { display: flex; align-items: flex-start; gap: 7px; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--red) 32%, var(--line)); border-radius: 7px; background: rgb(240 106 125 / 7%); color: var(--text-soft); font-size: 10px; line-height: 1.45; }
+.driver-safety svg { flex: 0 0 auto; color: var(--red); }
+.driver-guidance .driver-error { margin-top: 9px; color: var(--red); font-size: 10px; }
+.driver-actions { display: flex; gap: 7px; margin-top: 11px; }
 
 .uart-view { display: flex; flex-direction: column; }
 .uart-tabs { min-height: 35px; display: flex; gap: 2px; align-items: flex-end; overflow-x: auto; border-bottom: 1px solid var(--line); }

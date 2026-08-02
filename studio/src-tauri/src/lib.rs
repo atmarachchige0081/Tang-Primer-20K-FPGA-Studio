@@ -90,6 +90,11 @@ fn list_serial_devices() -> Result<Vec<SerialDevice>, String> {
 }
 
 #[tauri::command]
+fn launch_zadig(root: String, project: String) -> Result<String, String> {
+    hardware::launch_zadig(&root, &project)
+}
+
+#[tauri::command]
 fn connect_serial(
     app: AppHandle,
     sessions: State<'_, SerialRegistry>,
@@ -151,6 +156,7 @@ pub fn run() {
             read_build_summary,
             read_build_history,
             list_serial_devices,
+            launch_zadig,
             connect_serial,
             write_serial,
             disconnect_serial,
