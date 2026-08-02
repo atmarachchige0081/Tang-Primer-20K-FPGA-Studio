@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Background, Controls, Handle, MiniMap, Position, ReactFlow, type NodeProps } from "@xyflow/react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Activity, ArrowRight, BookOpen, Box, Cable, CheckCircle2, ChevronRight, CircuitBoard, Clock3, Cpu, Gauge, Lightbulb, MemoryStick, Network, Play, Plus, RefreshCw, Search, ShieldCheck, Sparkles, TerminalSquare, Waves, Zap } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Box, Cable, CheckCircle2, ChevronRight, CircuitBoard, Clock3, Cpu, Gauge, Lightbulb, Maximize2, MemoryStick, Minus, Network, Play, Plus, RefreshCw, Search, ShieldCheck, Sparkles, TerminalSquare, Waves, Zap } from "lucide-react";
 import { bridge } from "../lib/bridge";
+import { busPaths, formatSignalValue, formatVcdTime, scalarPoints, visibleTransitions, type WaveWindow } from "../lib/waveform";
 import { useWorkbench } from "../store/workbench";
-import type { BuildHistoryEntry, NetlistGraph, SerialDevice, WaveSignal, WaveformData } from "../types";
+import type { BuildHistoryEntry, NetlistGraph, SerialDevice, WaveformData } from "../types";
 
 function Metric({ label, value, note, icon: Icon, accent = "blue" }: { label: string; value: string; note: string; icon: typeof Cpu; accent?: string }): React.JSX.Element {
   return <article className={`metric-card accent-${accent}`}><div className="metric-icon"><Icon size={18} /></div><div><span>{label}</span><strong>{value}</strong><small>{note}</small></div></article>;
@@ -110,41 +111,6 @@ export function NetlistView(): React.JSX.Element {
 
 const waveformColors = ["#5eead4", "#fbbf24", "#a78bfa", "#60a5fa", "#fb7185", "#4ade80", "#f97316", "#c084fc"];
 
-function scalarPoints(signal: WaveSignal, endTime: number): string {
-  if (!signal.samples.length) return "0,19 480,19";
-  const scale = (time: number) => Math.max(0, Math.min(480, time / Math.max(1, endTime) * 480));
-  const level = (value: string) => value === "1" ? 7 : value === "0" ? 30 : 19;
-  const points: string[] = [];
-  let previous = signal.samples[0]!.value;
-  points.push(`0,${level(previous)}`);
-  for (const sample of signal.samples) {
-    const x = scale(sample.time);
-    points.push(`${x},${level(previous)}`, `${x},${level(sample.value)}`);
-    previous = sample.value;
-  }
-  points.push(`480,${level(previous)}`);
-  return points.join(" ");
-}
-
-function busPath(signal: WaveSignal, endTime: number): string {
-  if (!signal.samples.length) return "M0 19 L480 19";
-  const scale = (time: number) => Math.max(0, Math.min(480, time / Math.max(1, endTime) * 480));
-  const commands = ["M0 8"];
-  for (const sample of signal.samples.slice(1)) {
-    const x = scale(sample.time);
-    commands.push(`L${Math.max(0, x - 4)} 8 L${x} 19 L${Math.min(480, x + 4)} 30`);
-  }
-  commands.push("L480 30");
-  return commands.join(" ");
-}
-
-function latestValue(signal: WaveSignal): string {
-  const value = signal.samples.at(-1)?.value ?? "—";
-  if (signal.width === 1 || /[xz]/i.test(value)) return value;
-  const parsed = Number.parseInt(value, 2);
-  return Number.isSafeInteger(parsed) ? `0x${parsed.toString(16).toUpperCase()}` : value;
-}
-
 export function WaveformView(): React.JSX.Element {
   const root = useWorkbench((state) => state.root);
   const project = useWorkbench((state) => state.projectPath);
@@ -155,17 +121,42 @@ export function WaveformView(): React.JSX.Element {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [query, setQuery] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState(0);
+  const [showAliases, setShowAliases] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError(null);
-    try { setWaveform(await bridge.readWaveform(root, project)); }
+    try { setWaveform(await bridge.readWaveform(root, project)); setZoom(1); setPan(0); }
     catch (reason) { setWaveform(null); setError(reason instanceof Error ? reason.message : String(reason)); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { if (root) void load(); }, [root, project]);
-  const visibleSignals = useMemo(() => waveform?.signals.filter((signal) => `${signal.scope}.${signal.name}`.toLowerCase().includes(query.toLowerCase())).slice(0, 24) ?? [], [waveform, query]);
+  const visibleSignals = useMemo(() => {
+    if (!waveform) return [];
+    const needle = query.trim().toLowerCase();
+    const matching = waveform.signals.filter((signal) => !needle || `${signal.scope}.${signal.name}`.toLowerCase().includes(needle));
+    if (showAliases) return matching.slice(0, 100);
+    const identifiers = new Set<string>();
+    return matching.filter((signal) => {
+      if (identifiers.has(signal.id)) return false;
+      identifiers.add(signal.id);
+      return true;
+    }).slice(0, 100);
+  }, [waveform, query, showAliases]);
+  const viewWindow = useMemo<WaveWindow>(() => {
+    const total = Math.max(1, waveform?.endTime ?? 1);
+    const duration = total / zoom;
+    const start = (total - duration) * pan / 100;
+    return { start, end: start + duration };
+  }, [waveform, zoom, pan]);
+  const changeZoom = (next: number) => {
+    const safe = Math.max(1, Math.min(32, next));
+    setZoom(safe);
+    if (safe === 1) setPan(0);
+  };
   const runSimulation = async () => {
     const jobId = `waveform-sim-${Date.now()}`;
     setRunning(true);
@@ -179,12 +170,31 @@ export function WaveformView(): React.JSX.Element {
     } finally { setRunning(false); }
   };
 
-  const ruler = waveform ? Array.from({ length: 6 }, (_, index) => Math.round(waveform.endTime * index / 5)) : [];
+  const ruler = waveform ? Array.from({ length: 6 }, (_, index) => viewWindow.start + (viewWindow.end - viewWindow.start) * index / 5) : [];
   return <section className="feature-view waveform-view">
     <div className="feature-header compact"><div><p className="eyebrow">Simulation waveform</p><h1>{waveform?.path ?? "Waveform viewer"}</h1></div><div className="header-actions"><button className="secondary-button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? "spin" : ""} size={14}/> Reload</button><button className="secondary-button" onClick={() => void runSimulation()} disabled={running}><Play size={14}/> {running ? "Simulating…" : "Run simulation"}</button></div></div>
     {loading ? <div className="view-state"><RefreshCw className="spin" size={20}/><strong>Reading VCD waveform…</strong></div> : error ? <div className="view-state error-state"><Waves size={24}/><strong>No waveform available</strong><p>{error}</p><button className="primary-button" onClick={() => void runSimulation()}><Play size={14}/> Generate waveform</button></div> : waveform && <>
-      <div className="wave-tools"><label className="wave-search"><Search size={14}/><input aria-label="Find waveform signal" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find signal or scope" /></label><span>{waveform.timescale} timescale</span><span className="wave-spacer"/><span className="cursor-readout">{waveform.signals.length} signals</span>{waveform.truncated && <span className="status-warn">sample limit reached</span>}</div>
-      <div className="wave-shell"><div className="signal-list"><div className="signal-header">SIGNALS</div>{visibleSignals.map((signal, index) => <div className="signal-row" key={signal.id} title={`${signal.scope}.${signal.name}`}><span style={{ background: waveformColors[index % waveformColors.length] }}/><code>{signal.name}</code><small>{latestValue(signal)}</small></div>)}</div><div className="wave-canvas"><div className="time-ruler">{ruler.map((time) => <span key={time}>{time}</span>)}</div>{visibleSignals.map((signal, index) => { const color = waveformColors[index % waveformColors.length]; return <div className="wave-row" key={signal.id}>{signal.width > 1 ? <svg viewBox="0 0 480 38" preserveAspectRatio="none"><path d={busPath(signal, waveform.endTime)} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg> : <svg viewBox="0 0 480 38" preserveAspectRatio="none"><polyline points={scalarPoints(signal, waveform.endTime)} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg>}<span className="wave-value" style={{ color }}>{signal.scope}</span></div>; })}</div></div>
+      <div className="wave-tools">
+        <label className="wave-search"><Search size={14}/><input aria-label="Find waveform signal" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find signal or scope" /></label>
+        <button className={showAliases ? "active" : ""} onClick={() => setShowAliases((current) => !current)} title="Aliases are the same electrical signal declared in more than one VCD scope">{showAliases ? "Hide aliases" : "Show aliases"}</button>
+        <span>{waveform.timescale} timescale</span><span className="wave-spacer"/>
+        <div className="wave-zoom" aria-label="Waveform zoom controls"><button onClick={() => changeZoom(zoom / 2)} disabled={zoom === 1} title="Zoom out"><Minus size={13}/></button><span>{zoom}×</span><button onClick={() => changeZoom(zoom * 2)} disabled={zoom === 32} title="Zoom in"><Plus size={13}/></button><button onClick={() => changeZoom(1)} disabled={zoom === 1} title="Fit the complete simulation"><Maximize2 size={12}/> Fit</button></div>
+        <span className="cursor-readout">{visibleSignals.length}/{waveform.signals.length} signals</span>{waveform.truncated && <span className="status-warn">sample limit reached</span>}
+      </div>
+      {zoom > 1 && <div className="wave-pan"><span>{formatVcdTime(viewWindow.start, waveform.timescale, viewWindow.end - viewWindow.start)} – {formatVcdTime(viewWindow.end, waveform.timescale, viewWindow.end - viewWindow.start)}</span><input aria-label="Pan waveform timeline" type="range" min="0" max="100" step="0.1" value={pan} onChange={(event) => setPan(Number(event.target.value))}/></div>}
+      <div className="wave-shell">
+        <div className="signal-list"><div className="signal-header">SIGNALS <span>VALUE</span></div>{visibleSignals.map((signal, index) => <div className="signal-row" key={`${signal.scope}:${signal.name}:${index}`} title={`${signal.scope}.${signal.name}`}><span className="signal-color" style={{ background: waveformColors[index % waveformColors.length] }}/><span className="signal-copy"><code>{signal.name}</code><small>{signal.scope || "top"}</small></span><small className="signal-value">{formatSignalValue(signal, viewWindow.end)}</small></div>)}</div>
+        <div className="wave-canvas"><div className="time-ruler">{ruler.map((time, index) => <span key={index}>{formatVcdTime(time, waveform.timescale, viewWindow.end - viewWindow.start)}</span>)}</div>{visibleSignals.map((signal, index) => {
+          const color = waveformColors[index % waveformColors.length];
+          const key = `${signal.scope}:${signal.name}:${index}`;
+          if (signal.width > 1) {
+            const paths = busPaths(signal, viewWindow);
+            return <div className="wave-row" key={key}><svg viewBox="0 0 480 38" preserveAspectRatio="none"><path d={paths.top} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke"/><path d={paths.bottom} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg></div>;
+          }
+          const dense = visibleTransitions(signal, viewWindow) > 240;
+          return <div className="wave-row" key={key}>{dense ? <><svg viewBox="0 0 480 38" preserveAspectRatio="none" className="dense-wave"><defs><pattern id={`dense-${index}`} width="6" height="38" patternUnits="userSpaceOnUse"><path d="M0 7 V30" stroke={color} strokeWidth="1" opacity=".55"/></pattern></defs><path d="M0 7 H480 M0 30 H480" stroke={color} strokeWidth="1.5" fill="none" vectorEffect="non-scaling-stroke"/><rect x="0" y="7" width="480" height="23" fill={`url(#dense-${index})`}/></svg><span className="dense-label" style={{ color }}>dense clock · zoom in</span></> : <svg viewBox="0 0 480 38" preserveAspectRatio="none"><polyline points={scalarPoints(signal, viewWindow)} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg>}</div>;
+        })}</div>
+      </div>
     </>}
   </section>;
 }

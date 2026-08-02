@@ -30,7 +30,9 @@ pub fn read(root: &str, project: &str) -> Result<WaveformData, String> {
 fn parse(content: &str, path: String) -> Result<WaveformData, String> {
     let mut scopes = Vec::<String>::new();
     let mut signals = Vec::<WaveSignal>::new();
-    let mut indexes = HashMap::<String, usize>::new();
+    // VCD aliases intentionally reuse an identifier in multiple scopes. Keep every
+    // declaration synchronized instead of silently assigning changes to the last one.
+    let mut indexes = HashMap::<String, Vec<usize>>::new();
     let mut time = 0_u64;
     let mut end_time = 0_u64;
     let mut timescale = "unknown".to_owned();
@@ -68,7 +70,7 @@ fn parse(content: &str, path: String) -> Result<WaveformData, String> {
                 if let Some(range) = parts.get(5).filter(|value| **value != "$end") {
                     name.push_str(range);
                 }
-                indexes.insert(id.clone(), signals.len());
+                indexes.entry(id.clone()).or_default().push(signals.len());
                 signals.push(WaveSignal {
                     id,
                     name,
@@ -97,19 +99,21 @@ fn parse(content: &str, path: String) -> Result<WaveformData, String> {
                         .map(|value| (chars.as_str(), &line[..value.len_utf8()]))
                 };
             if let Some((id, value)) = change {
-                if let Some(index) = indexes.get(id).copied() {
-                    if samples >= MAX_SAMPLES {
-                        truncated = true;
-                    } else if signals[index]
-                        .samples
-                        .last()
-                        .is_none_or(|previous| previous.value != value)
-                    {
-                        signals[index].samples.push(WaveSample {
-                            time,
-                            value: value.to_owned(),
-                        });
-                        samples += 1;
+                if let Some(signal_indexes) = indexes.get(id) {
+                    for &index in signal_indexes {
+                        if samples >= MAX_SAMPLES {
+                            truncated = true;
+                        } else if signals[index]
+                            .samples
+                            .last()
+                            .is_none_or(|previous| previous.value != value)
+                        {
+                            signals[index].samples.push(WaveSample {
+                                time,
+                                value: value.to_owned(),
+                            });
+                            samples += 1;
+                        }
                     }
                 }
             }
@@ -140,5 +144,22 @@ mod tests {
         assert_eq!(result.signals.len(), 2);
         assert_eq!(result.signals[1].name, "data[3:0]");
         assert_eq!(result.signals[1].samples[1].value, "1010");
+    }
+
+    #[test]
+    fn keeps_aliased_signals_in_each_scope_synchronized() {
+        let vcd = "$timescale 1 ns $end\n$scope module tb $end\n$var wire 1 ! clk $end\n$scope module dut $end\n$var wire 1 ! clk $end\n$upscope $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\n#5\n1!\n";
+        let result = parse(vcd, "build/waves.vcd".into()).expect("valid aliases");
+        assert_eq!(result.signals.len(), 2);
+        assert_eq!(result.signals[0].samples.len(), 2);
+        assert_eq!(result.signals[1].samples.len(), 2);
+        for (left, right) in result.signals[0]
+            .samples
+            .iter()
+            .zip(&result.signals[1].samples)
+        {
+            assert_eq!(left.time, right.time);
+            assert_eq!(left.value, right.value);
+        }
     }
 }
