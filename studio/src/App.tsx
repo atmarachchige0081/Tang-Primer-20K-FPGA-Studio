@@ -7,6 +7,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
+import { ProjectWizard } from "./components/ProjectWizard";
+import { ReleaseNotes } from "./components/ReleaseNotes";
 import { DashboardView, HardwareView, NetlistView, UartView, WaveformView, WelcomeView } from "./components/WorkbenchViews";
 import { bridge } from "./lib/bridge";
 import { useWorkbench } from "./store/workbench";
@@ -96,7 +98,7 @@ function Workbench(): React.JSX.Element {
   }, [store.runningJob]);
 
   const View = store.view === "editor" ? EditorWorkspace : viewComponents[store.view];
-  return <div className="app-shell">
+  return <><div className="app-shell">
     <TitleBar />
     <div className="workbench-shell">
       <ActivityBar />
@@ -107,7 +109,7 @@ function Workbench(): React.JSX.Element {
       </main>
     </div>
     <StatusBar />
-  </div>;
+  </div><ProjectWizard /><ReleaseNotes /></>;
 }
 
 export function App(): React.JSX.Element {

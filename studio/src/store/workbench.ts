@@ -19,6 +19,7 @@ interface WorkbenchState {
   diagnostics: Diagnostic[];
   build: BuildSummary | null;
   runningJob: string | null;
+  projectWizardOpen: boolean;
   setWorkspace: (root: string, project: string, projectPath: string, tree: ProjectNode[]) => void;
   setActivity: (activity: Activity) => void;
   setView: (view: WorkbenchView) => void;
@@ -35,6 +36,8 @@ interface WorkbenchState {
   setDiagnostics: (items: Diagnostic[]) => void;
   setBuild: (summary: BuildSummary) => void;
   setRunningJob: (jobId: string | null) => void;
+  openProjectWizard: () => void;
+  closeProjectWizard: () => void;
 }
 
 const storedTheme = (localStorage.getItem("fpga-studio.theme") as ThemeMode | null) ?? "dark";
@@ -57,7 +60,8 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   diagnostics: [],
   build: null,
   runningJob: null,
-  setWorkspace: (root, project, projectPath, tree) => set({ root, project, projectPath, tree, ready: true }),
+  projectWizardOpen: false,
+  setWorkspace: (root, project, projectPath, tree) => set({ root, project, projectPath, tree, ready: true, tabs: [], activePath: null, view: "welcome" }),
   setActivity: (activity) => set({ activity, sidebarOpen: true }),
   setView: (view) => set({ view }),
   setBottomPanel: (bottomPanel) => set({ bottomPanel, bottomOpen: true }),
@@ -85,4 +89,6 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   setDiagnostics: (diagnostics) => set({ diagnostics }),
   setBuild: (build) => set({ build }),
   setRunningJob: (runningJob) => set({ runningJob }),
+  openProjectWizard: () => set({ projectWizardOpen: true }),
+  closeProjectWizard: () => set({ projectWizardOpen: false }),
 }));

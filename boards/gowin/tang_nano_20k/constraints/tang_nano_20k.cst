@@ -1,0 +1,6 @@
+// Minimal Tang Nano 20K clock/LED constraints. Verify expansion-pin mappings
+// against the exact board revision before enabling additional I/O.
+IO_LOC  "clk_27mhz" 4;
+IO_PORT "clk_27mhz" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC  "led_n" 15;
+IO_PORT "led_n" IO_TYPE=LVCMOS33 DRIVE=8;

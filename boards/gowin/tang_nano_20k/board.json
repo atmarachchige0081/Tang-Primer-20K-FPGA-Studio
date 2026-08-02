@@ -1,0 +1,22 @@
+{
+  "$schema": "../../schema/board.schema.json",
+  "schemaVersion": 1,
+  "id": "tang_nano_20k",
+  "name": "Sipeed Tang Nano 20K",
+  "vendor": "Gowin",
+  "family": "GW2AR-18C",
+  "yosysFamily": "gw2a",
+  "device": "GW2AR-LV18QN88C8/I7",
+  "logicCells": 20736,
+  "clocks": [
+    { "name": "clk_27mhz", "frequencyHz": 27000000, "pin": "4", "ioStandard": "LVCMOS33" }
+  ],
+  "programmer": {
+    "backend": "openFPGALoader",
+    "board": "tangnano20k",
+    "transport": "bl616"
+  },
+  "constraints": ["constraints/tang_nano_20k.cst"],
+  "documentation": "README.md",
+  "capabilities": ["jtag", "sram", "flash", "uart", "leds", "buttons", "hdmi", "sd-card"]
+}

@@ -1,4 +1,4 @@
-use crate::models::BuildSummary;
+use crate::models::{BuildAction, BuildHistoryEntry, BuildHistoryFile, BuildSummary};
 use crate::security::{canonical_workspace, safe_existing_path};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -91,9 +91,88 @@ fn file_size(path: &std::path::Path) -> Option<u64> {
     fs::metadata(path).ok().map(|metadata| metadata.len())
 }
 
+pub fn build_history(root: &str, project: &str) -> Result<Vec<BuildHistoryEntry>, String> {
+    let root = canonical_workspace(root)?;
+    let project = safe_existing_path(&root, project)?;
+    read_history_file(&project)
+}
+
+pub fn record_history(
+    root: &str,
+    project: &str,
+    action: BuildAction,
+    success: bool,
+    duration_ms: u128,
+) -> Result<(), String> {
+    let summary = build_summary(root, project)?;
+    let root = canonical_workspace(root)?;
+    let project = safe_existing_path(&root, project)?;
+    let mut entries = read_history_file(&project)?;
+    let build_number = entries.last().map_or(1, |entry| entry.build_number + 1);
+    entries.push(BuildHistoryEntry {
+        build_number,
+        action,
+        success,
+        duration_ms,
+        completed_at: Utc::now().to_rfc3339(),
+        fmax_m_hz: summary.fmax_m_hz,
+        lut_used: summary.lut_used,
+        registers_used: summary.registers_used,
+        bitstream_bytes: summary.bitstream_bytes,
+    });
+    if entries.len() > 200 {
+        entries.drain(..entries.len() - 200);
+    }
+    let directory = project.join(".fpga-studio");
+    fs::create_dir_all(&directory)
+        .map_err(|error| format!("Cannot create build history directory: {error}"))?;
+    let path = directory.join("build-history.json");
+    let temporary = directory.join("build-history.json.tmp");
+    let backup = directory.join("build-history.json.bak");
+    let data = serde_json::to_vec_pretty(&BuildHistoryFile {
+        schema_version: 1,
+        entries,
+    })
+    .map_err(|error| format!("Cannot serialize build history: {error}"))?;
+    fs::write(&temporary, data).map_err(|error| format!("Cannot write build history: {error}"))?;
+    if path.is_file() {
+        let _ = fs::remove_file(&backup);
+        fs::rename(&path, &backup)
+            .map_err(|error| format!("Cannot prepare build history update: {error}"))?;
+    }
+    if let Err(error) = fs::rename(&temporary, &path) {
+        if backup.is_file() {
+            let _ = fs::rename(&backup, &path);
+        }
+        return Err(format!("Cannot publish build history: {error}"));
+    }
+    if backup.is_file() {
+        let _ = fs::remove_file(backup);
+    }
+    Ok(())
+}
+
+fn read_history_file(project: &std::path::Path) -> Result<Vec<BuildHistoryEntry>, String> {
+    let path = project.join(".fpga-studio/build-history.json");
+    if !path.is_file() {
+        return Ok(Vec::new());
+    }
+    let history: BuildHistoryFile = serde_json::from_slice(
+        &fs::read(&path).map_err(|error| format!("Cannot read build history: {error}"))?,
+    )
+    .map_err(|error| format!("Build history is invalid JSON: {error}"))?;
+    if history.schema_version != 1 {
+        return Err(format!(
+            "Unsupported build history schema {}",
+            history.schema_version
+        ));
+    }
+    Ok(history.entries)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::utilization_pair;
+    use super::{read_history_file, utilization_pair};
     use serde_json::json;
 
     #[test]
@@ -103,5 +182,14 @@ mod tests {
             utilization_pair(Some(&report), "LUT4"),
             (Some(12), Some(100))
         );
+    }
+
+    #[test]
+    fn missing_history_is_empty() {
+        let directory =
+            std::env::temp_dir().join(format!("fpga-studio-history-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).expect("temporary directory");
+        assert!(read_history_file(&directory).expect("history").is_empty());
+        std::fs::remove_dir_all(directory).expect("remove temporary directory");
     }
 }

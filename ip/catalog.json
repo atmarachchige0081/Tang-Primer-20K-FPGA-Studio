@@ -1,0 +1,797 @@
+{
+  "schemaVersion": 1,
+  "patterns": [
+    {
+      "title": "Clocked register with synchronous reset",
+      "category": "Sequential logic",
+      "difficulty": "Beginner",
+      "summary": "Stores a value on the rising clock edge and clears it synchronously.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        value <= '0;\n    end else begin\n        value <= next_value;\n    end\nend",
+      "aliases": [
+        "ffreg"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Clocked register with asynchronous reset",
+      "category": "Sequential logic",
+      "difficulty": "Beginner",
+      "summary": "Asserts reset immediately; use only when the target reset strategy requires it.",
+      "code": "always_ff @(posedge clk or posedge reset) begin\n    if (reset) begin\n        value <= '0;\n    end else begin\n        value <= next_value;\n    end\nend",
+      "aliases": [
+        "ffasync"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Register with clock enable",
+      "category": "Sequential logic",
+      "difficulty": "Beginner",
+      "summary": "Updates a register only when enable is high without creating a gated clock.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        value <= '0;\n    end else if (enable) begin\n        value <= next_value;\n    end\nend",
+      "aliases": [
+        "ffen"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Sticky status flag",
+      "category": "Sequential logic",
+      "difficulty": "Beginner",
+      "summary": "Remembers an event until software or control logic explicitly clears it.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        event_seen <= 1'b0;\n    end else if (clear) begin\n        event_seen <= 1'b0;\n    end else if (event_pulse) begin\n        event_seen <= 1'b1;\n    end\nend",
+      "aliases": [
+        "sticky"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Rising-edge detector",
+      "category": "Sequential logic",
+      "difficulty": "Beginner",
+      "summary": "Creates a one-clock pulse when a synchronous signal changes from 0 to 1.",
+      "code": "logic signal_d;\n\nalways_ff @(posedge clk) begin\n    if (reset) signal_d <= 1'b0;\n    else       signal_d <= signal_in;\nend\n\nassign rise_pulse = signal_in & ~signal_d;",
+      "aliases": [
+        "rise"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Falling-edge detector",
+      "category": "Sequential logic",
+      "difficulty": "Beginner",
+      "summary": "Creates a one-clock pulse when a synchronous signal changes from 1 to 0.",
+      "code": "logic signal_d;\n\nalways_ff @(posedge clk) begin\n    if (reset) signal_d <= 1'b1;\n    else       signal_d <= signal_in;\nend\n\nassign fall_pulse = ~signal_in & signal_d;",
+      "aliases": [
+        "fall"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Toggle register on pulse",
+      "category": "Sequential logic",
+      "difficulty": "Beginner",
+      "summary": "Flips a state bit for each single-cycle event pulse.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        toggle_state <= 1'b0;\n    end else if (toggle_pulse) begin\n        toggle_state <= ~toggle_state;\n    end\nend",
+      "aliases": [
+        "toggle"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Parameterized shift register",
+      "category": "Sequential logic",
+      "difficulty": "Intermediate",
+      "summary": "Shifts serial data through a configurable-width register; WIDTH must be at least two.",
+      "code": "logic [WIDTH-1:0] shift_reg;\n\nalways_ff @(posedge clk) begin\n    if (reset) begin\n        shift_reg <= '0;\n    end else if (shift_enable) begin\n        shift_reg <= {shift_reg[WIDTH-2:0], serial_in};\n    end\nend\n\nassign serial_out = shift_reg[WIDTH-1];",
+      "aliases": [
+        "shiftreg"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Defaulted combinational logic",
+      "category": "Combinational logic",
+      "difficulty": "Beginner",
+      "summary": "Assigns defaults first so every output is driven on every path.",
+      "code": "always_comb begin\n    next_value = value;\n    output_valid = 1'b0;\n\n    if (condition) begin\n        next_value = new_value;\n        output_valid = 1'b1;\n    end\nend",
+      "aliases": [
+        "comb"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Two-input multiplexer",
+      "category": "Combinational logic",
+      "difficulty": "Beginner",
+      "summary": "Selects one of two values with a conditional operator.",
+      "code": "assign selected_data = select ? data_b : data_a;",
+      "aliases": [
+        "mux2"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Four-input multiplexer",
+      "category": "Combinational logic",
+      "difficulty": "Beginner",
+      "summary": "Uses a complete case statement with a defensive default.",
+      "code": "always_comb begin\n    unique case (select)\n        2'd0: selected_data = data_0;\n        2'd1: selected_data = data_1;\n        2'd2: selected_data = data_2;\n        2'd3: selected_data = data_3;\n        default: selected_data = '0;\n    endcase\nend",
+      "aliases": [
+        "mux4"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Priority encoder",
+      "category": "Combinational logic",
+      "difficulty": "Intermediate",
+      "summary": "Returns the highest-priority asserted request and a valid flag.",
+      "code": "always_comb begin\n    encoded = '0;\n    valid = 1'b1;\n    priority casez (request)\n        4'b1???: encoded = 2'd3;\n        4'b01??: encoded = 2'd2;\n        4'b001?: encoded = 2'd1;\n        4'b0001: encoded = 2'd0;\n        default: begin\n            encoded = '0;\n            valid = 1'b0;\n        end\n    endcase\nend",
+      "aliases": [
+        "priority"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Binary-to-one-hot decoder",
+      "category": "Combinational logic",
+      "difficulty": "Beginner",
+      "summary": "Converts a binary index into a one-hot vector.",
+      "code": "always_comb begin\n    one_hot = '0;\n    if (enable) begin\n        one_hot[index] = 1'b1;\n    end\nend",
+      "aliases": [
+        "onehot"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "One-hot-to-binary encoder",
+      "category": "Combinational logic",
+      "difficulty": "Intermediate",
+      "summary": "Encodes a one-hot input and reports whether any bit is asserted.",
+      "code": "always_comb begin\n    index = '0;\n    valid = |one_hot;\n    for (int i = 0; i < WIDTH; i++) begin\n        if (one_hot[i]) index = INDEX_WIDTH'(i);\n    end\nend",
+      "aliases": [
+        "hotencode"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Unsigned minimum and maximum",
+      "category": "Combinational logic",
+      "difficulty": "Beginner",
+      "summary": "Produces the smaller and larger of two unsigned values.",
+      "code": "always_comb begin\n    if (value_a < value_b) begin\n        minimum = value_a;\n        maximum = value_b;\n    end else begin\n        minimum = value_b;\n        maximum = value_a;\n    end\nend",
+      "aliases": [
+        "minmax"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Population count",
+      "category": "Combinational logic",
+      "difficulty": "Intermediate",
+      "summary": "Counts how many bits in a vector are high.",
+      "code": "always_comb begin\n    bit_count = '0;\n    for (int i = 0; i < WIDTH; i++) begin\n        bit_count = bit_count + input_bits[i];\n    end\nend",
+      "aliases": [
+        "popcount"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Free-running counter",
+      "category": "Counters and timing",
+      "difficulty": "Beginner",
+      "summary": "Increments on every clock and naturally wraps at its maximum value.",
+      "code": "logic [WIDTH-1:0] counter;\n\nalways_ff @(posedge clk) begin\n    if (reset) counter <= '0;\n    else       counter <= counter + 1'b1;\nend",
+      "aliases": [
+        "counter"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Modulo-N counter",
+      "category": "Counters and timing",
+      "difficulty": "Beginner",
+      "summary": "Counts from zero through LIMIT-1 and emits a one-cycle wrap pulse.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        count <= '0;\n        wrap_pulse <= 1'b0;\n    end else begin\n        wrap_pulse <= 1'b0;\n        if (count == LIMIT-1) begin\n            count <= '0;\n            wrap_pulse <= 1'b1;\n        end else begin\n            count <= count + 1'b1;\n        end\n    end\nend",
+      "aliases": [
+        "modcounter"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Clock-enable pulse divider",
+      "category": "Counters and timing",
+      "difficulty": "Beginner",
+      "summary": "Generates a slow one-cycle enable while keeping all logic on the main clock.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        divider <= '0;\n        tick <= 1'b0;\n    end else begin\n        tick <= 1'b0;\n        if (divider == DIVISOR-1) begin\n            divider <= '0;\n            tick <= 1'b1;\n        end else begin\n            divider <= divider + 1'b1;\n        end\n    end\nend",
+      "aliases": [
+        "tickgen"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Restartable interval timer",
+      "category": "Counters and timing",
+      "difficulty": "Intermediate",
+      "summary": "Starts on command and raises done for one cycle after the selected interval.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        timer_count <= '0;\n        timer_busy <= 1'b0;\n        timer_done <= 1'b0;\n    end else begin\n        timer_done <= 1'b0;\n        if (start) begin\n            timer_count <= '0;\n            timer_busy <= 1'b1;\n        end else if (timer_busy && timer_count == INTERVAL-1) begin\n            timer_busy <= 1'b0;\n            timer_done <= 1'b1;\n        end else if (timer_busy) begin\n            timer_count <= timer_count + 1'b1;\n        end\n    end\nend",
+      "aliases": [
+        "timer"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Watchdog timeout",
+      "category": "Counters and timing",
+      "difficulty": "Intermediate",
+      "summary": "Raises a sticky fault if a periodic service pulse stops arriving.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset || service) begin\n        watchdog_count <= '0;\n        watchdog_fault <= 1'b0;\n    end else if (!watchdog_fault) begin\n        if (watchdog_count == TIMEOUT_CYCLES-1) begin\n            watchdog_fault <= 1'b1;\n        end else begin\n            watchdog_count <= watchdog_count + 1'b1;\n        end\n    end\nend",
+      "aliases": [
+        "watchdog"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Pulse stretcher",
+      "category": "Counters and timing",
+      "difficulty": "Intermediate",
+      "summary": "Extends a single-cycle event so slower logic can observe it.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        stretch_count <= '0;\n    end else if (input_pulse) begin\n        stretch_count <= STRETCH_CYCLES;\n    end else if (stretch_count != 0) begin\n        stretch_count <= stretch_count - 1'b1;\n    end\nend\n\nassign stretched = (stretch_count != 0);",
+      "aliases": [
+        "stretch"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "PWM generator",
+      "category": "Counters and timing",
+      "difficulty": "Beginner",
+      "summary": "Compares a free-running phase counter with a duty-cycle value.",
+      "code": "logic [PWM_BITS-1:0] pwm_counter;\n\nalways_ff @(posedge clk) begin\n    if (reset) pwm_counter <= '0;\n    else       pwm_counter <= pwm_counter + 1'b1;\nend\n\nassign pwm_out = (pwm_counter < duty_cycle);",
+      "aliases": [
+        "pwm"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "LED blink divider",
+      "category": "Counters and timing",
+      "difficulty": "Beginner",
+      "summary": "Toggles an LED state after a configurable number of clock cycles.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        blink_count <= '0;\n        led_state <= 1'b0;\n    end else if (blink_count == HALF_PERIOD-1) begin\n        blink_count <= '0;\n        led_state <= ~led_state;\n    end else begin\n        blink_count <= blink_count + 1'b1;\n    end\nend",
+      "aliases": [
+        "blink"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Event frequency counter",
+      "category": "Counters and timing",
+      "difficulty": "Advanced",
+      "summary": "Counts synchronized event edges during a fixed measurement window.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        window_count <= '0;\n        event_count <= '0;\n        measured_count <= '0;\n        measurement_valid <= 1'b0;\n    end else begin\n        measurement_valid <= 1'b0;\n        if (event_pulse) event_count <= event_count + 1'b1;\n        if (window_count == WINDOW_CYCLES-1) begin\n            window_count <= '0;\n            measured_count <= event_count + event_pulse;\n            event_count <= '0;\n            measurement_valid <= 1'b1;\n        end else begin\n            window_count <= window_count + 1'b1;\n        end\n    end\nend",
+      "aliases": [
+        "freqcount"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Programmable rate divider",
+      "category": "Counters and timing",
+      "difficulty": "Intermediate",
+      "summary": "Reloads a down-counter to produce a programmable one-cycle tick.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        rate_count <= '0;\n        rate_tick <= 1'b0;\n    end else if (rate_count == 0) begin\n        rate_count <= reload_value;\n        rate_tick <= 1'b1;\n    end else begin\n        rate_count <= rate_count - 1'b1;\n        rate_tick <= 1'b0;\n    end\nend",
+      "aliases": [
+        "ratediv"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Two-flop bit synchronizer",
+      "category": "CDC and inputs",
+      "difficulty": "Beginner",
+      "summary": "Reduces metastability risk for a slowly changing single-bit input.",
+      "code": "(* async_reg = \"true\" *) logic async_meta;\n(* async_reg = \"true\" *) logic async_sync;\n\nalways_ff @(posedge clk) begin\n    async_meta <= async_input;\n    async_sync <= async_meta;\nend",
+      "aliases": [
+        "sync2"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Asynchronous-assert reset synchronizer",
+      "category": "CDC and inputs",
+      "difficulty": "Advanced",
+      "summary": "Asserts reset immediately and releases it synchronously in the destination domain.",
+      "code": "(* async_reg = \"true\" *) logic [1:0] reset_pipe;\n\nalways_ff @(posedge clk or negedge async_reset_n) begin\n    if (!async_reset_n) reset_pipe <= 2'b00;\n    else                reset_pipe <= {reset_pipe[0], 1'b1};\nend\n\nassign reset_n = reset_pipe[1];",
+      "aliases": [
+        "resetsync"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Toggle-based pulse synchronizer",
+      "category": "CDC and inputs",
+      "difficulty": "Advanced",
+      "summary": "Transfers an occasional pulse between unrelated clock domains using a toggle.",
+      "code": "// Source clock domain\nalways_ff @(posedge source_clk) begin\n    if (source_reset) source_toggle <= 1'b0;\n    else if (source_pulse) source_toggle <= ~source_toggle;\nend\n\n// Destination clock domain\nalways_ff @(posedge dest_clk) begin\n    if (dest_reset) begin\n        toggle_meta <= 1'b0;\n        toggle_sync <= 1'b0;\n        toggle_sync_d <= 1'b0;\n    end else begin\n        toggle_meta <= source_toggle;\n        toggle_sync <= toggle_meta;\n        toggle_sync_d <= toggle_sync;\n    end\nend\n\nassign dest_pulse = toggle_sync ^ toggle_sync_d;",
+      "aliases": [
+        "cdcpulse"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Gray-code counter synchronizer",
+      "category": "CDC and inputs",
+      "difficulty": "Advanced",
+      "summary": "Transfers a changing counter safely by synchronizing its Gray-coded representation.",
+      "code": "// Source domain\nassign source_gray = source_binary ^ (source_binary >> 1);\n\n// Destination domain\nalways_ff @(posedge dest_clk) begin\n    gray_meta <= source_gray;\n    gray_sync <= gray_meta;\nend\n\nalways_comb begin\n    dest_binary[WIDTH-1] = gray_sync[WIDTH-1];\n    for (int i = WIDTH-2; i >= 0; i--) begin\n        dest_binary[i] = dest_binary[i+1] ^ gray_sync[i];\n    end\nend",
+      "aliases": [
+        "graycdc"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Synchronized edge detector",
+      "category": "CDC and inputs",
+      "difficulty": "Intermediate",
+      "summary": "Synchronizes an external bit before producing a clean rising-edge pulse.",
+      "code": "logic input_meta, input_sync, input_sync_d;\n\nalways_ff @(posedge clk) begin\n    input_meta <= async_input;\n    input_sync <= input_meta;\n    input_sync_d <= input_sync;\nend\n\nassign input_rise = input_sync & ~input_sync_d;",
+      "aliases": [
+        "syncedge"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Counter-based button debouncer",
+      "category": "CDC and inputs",
+      "difficulty": "Intermediate",
+      "summary": "Accepts a synchronized input change only after it remains stable.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        stable_state <= 1'b0;\n        debounce_count <= '0;\n    end else if (sampled_input == stable_state) begin\n        debounce_count <= '0;\n    end else if (debounce_count == STABLE_CYCLES-1) begin\n        stable_state <= sampled_input;\n        debounce_count <= '0;\n    end else begin\n        debounce_count <= debounce_count + 1'b1;\n    end\nend",
+      "aliases": [
+        "debounce"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Digital glitch filter",
+      "category": "CDC and inputs",
+      "difficulty": "Intermediate",
+      "summary": "Changes output only after every sample in a short history agrees.",
+      "code": "logic [FILTER_LENGTH-1:0] sample_history;\n\nalways_ff @(posedge clk) begin\n    if (reset) begin\n        sample_history <= '0;\n        filtered_output <= 1'b0;\n    end else begin\n        sample_history <= {sample_history[FILTER_LENGTH-2:0], sampled_input};\n        if (&sample_history)       filtered_output <= 1'b1;\n        else if (~|sample_history) filtered_output <= 1'b0;\n    end\nend",
+      "aliases": [
+        "glitchfilter"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Source-held multi-bit bus capture",
+      "category": "CDC and inputs",
+      "difficulty": "Advanced",
+      "summary": "Use only when the source guarantees the bus remains stable for several destination clocks; otherwise use a handshake or asynchronous FIFO.",
+      "code": "always_ff @(posedge dest_clk) begin\n    bus_meta <= async_bus;\n    bus_sample <= bus_meta;\n    bus_previous <= bus_sample;\n    if (bus_sample == bus_previous) begin\n        captured_bus <= bus_sample;\n        captured_valid <= 1'b1;\n    end else begin\n        captured_valid <= 1'b0;\n    end\nend",
+      "aliases": [
+        "stablebus"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Safe finite-state machine",
+      "category": "State machines",
+      "difficulty": "Intermediate",
+      "summary": "Uses typed states, a registered state, defaults, and recovery from illegal values.",
+      "code": "typedef enum logic [1:0] {IDLE, ACTIVE, DONE} state_t;\nstate_t state, next_state;\n\nalways_ff @(posedge clk) begin\n    if (reset) state <= IDLE;\n    else       state <= next_state;\nend\n\nalways_comb begin\n    next_state = state;\n    unique case (state)\n        IDLE:    if (start) next_state = ACTIVE;\n        ACTIVE:  if (finished) next_state = DONE;\n        DONE:    next_state = IDLE;\n        default: next_state = IDLE;\n    endcase\nend",
+      "aliases": [
+        "fsm"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Moore FSM with registered state",
+      "category": "State machines",
+      "difficulty": "Intermediate",
+      "summary": "Derives outputs only from the current state for stable cycle-aligned control.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) state <= IDLE;\n    else       state <= next_state;\nend\n\nalways_comb begin\n    next_state = state;\n    busy = 1'b0;\n    done = 1'b0;\n    case (state)\n        IDLE: if (start) next_state = WORK;\n        WORK: begin\n            busy = 1'b1;\n            if (finished) next_state = COMPLETE;\n        end\n        COMPLETE: begin\n            done = 1'b1;\n            next_state = IDLE;\n        end\n        default: next_state = IDLE;\n    endcase\nend",
+      "aliases": [
+        "moore"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Mealy FSM output",
+      "category": "State machines",
+      "difficulty": "Intermediate",
+      "summary": "Produces an output from both the current state and current input.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) state <= WAITING;\n    else       state <= next_state;\nend\n\nalways_comb begin\n    next_state = state;\n    accept = 1'b0;\n    case (state)\n        WAITING: if (request) begin\n            accept = 1'b1;\n            next_state = ACTIVE;\n        end\n        ACTIVE: if (complete) next_state = WAITING;\n        default: next_state = WAITING;\n    endcase\nend",
+      "aliases": [
+        "mealy"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "One-hot finite-state machine",
+      "category": "State machines",
+      "difficulty": "Advanced",
+      "summary": "Uses one state bit per state for simple decode logic.",
+      "code": "localparam logic [2:0] S_IDLE = 3'b001;\nlocalparam logic [2:0] S_READ = 3'b010;\nlocalparam logic [2:0] S_DONE = 3'b100;\n\nalways_ff @(posedge clk) begin\n    if (reset) state <= S_IDLE;\n    else       state <= next_state;\nend\n\nalways_comb begin\n    next_state = S_IDLE;\n    unique case (1'b1)\n        state[0]: next_state = start ? S_READ : S_IDLE;\n        state[1]: next_state = valid ? S_DONE : S_READ;\n        state[2]: next_state = S_IDLE;\n        default:  next_state = S_IDLE;\n    endcase\nend",
+      "aliases": [
+        "fsm1h"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Request-acknowledge controller",
+      "category": "State machines",
+      "difficulty": "Intermediate",
+      "summary": "Holds a request until acknowledge arrives, then waits for acknowledge to drop.",
+      "code": "typedef enum logic [1:0] {READY, REQUESTING, WAIT_LOW} handshake_state_t;\n\nalways_ff @(posedge clk) begin\n    if (reset) state <= READY;\n    else       state <= next_state;\nend\n\nalways_comb begin\n    next_state = state;\n    request = 1'b0;\n    case (state)\n        READY:      if (start) next_state = REQUESTING;\n        REQUESTING: begin\n            request = 1'b1;\n            if (acknowledge) next_state = WAIT_LOW;\n        end\n        WAIT_LOW:   if (!acknowledge) next_state = READY;\n        default:    next_state = READY;\n    endcase\nend",
+      "aliases": [
+        "reqack"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Two-client round-robin arbiter",
+      "category": "State machines",
+      "difficulty": "Advanced",
+      "summary": "Alternates priority after successful grants so both requesters make progress.",
+      "code": "always_comb begin\n    grant = 2'b00;\n    if (request == 2'b11) grant[last_grant ^ 1'b1] = 1'b1;\n    else if (request[0])  grant[0] = 1'b1;\n    else if (request[1])  grant[1] = 1'b1;\nend\n\nalways_ff @(posedge clk) begin\n    if (reset) last_grant <= 1'b1;\n    else if (grant[0] && accept) last_grant <= 1'b0;\n    else if (grant[1] && accept) last_grant <= 1'b1;\nend",
+      "aliases": [
+        "rrarb"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "1011 sequence detector",
+      "category": "State machines",
+      "difficulty": "Intermediate",
+      "summary": "Recognizes the serial bit pattern 1011 and allows overlapping matches.",
+      "code": "typedef enum logic [1:0] {NONE, SAW_1, SAW_10, SAW_101} seq_state_t;\n\nalways_ff @(posedge clk) begin\n    if (reset) state <= NONE;\n    else       state <= next_state;\nend\n\nalways_comb begin\n    detected = 1'b0;\n    unique case (state)\n        NONE:    next_state = serial_bit ? SAW_1 : NONE;\n        SAW_1:   next_state = serial_bit ? SAW_1 : SAW_10;\n        SAW_10:  next_state = serial_bit ? SAW_101 : NONE;\n        SAW_101: begin\n            detected = serial_bit;\n            next_state = serial_bit ? SAW_1 : SAW_10;\n        end\n        default: next_state = NONE;\n    endcase\nend",
+      "aliases": [
+        "seq1011"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Add-subtract datapath",
+      "category": "Arithmetic and data path",
+      "difficulty": "Beginner",
+      "summary": "Selects addition or subtraction while keeping the result width explicit.",
+      "code": "logic [WIDTH:0] extended_a, extended_b;\n\nassign extended_a = {1'b0, operand_a};\nassign extended_b = {1'b0, operand_b};\nassign result = subtract ? (extended_a - extended_b)\n                         : (extended_a + extended_b);",
+      "aliases": [
+        "addsub"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Saturating unsigned adder",
+      "category": "Arithmetic and data path",
+      "difficulty": "Intermediate",
+      "summary": "Clamps an overflowing unsigned sum instead of wrapping to zero.",
+      "code": "logic [WIDTH:0] wide_sum;\n\nassign wide_sum = {1'b0, value_a} + {1'b0, value_b};\nassign saturated_sum = wide_sum[WIDTH] ? {WIDTH{1'b1}}\n                                       : wide_sum[WIDTH-1:0];",
+      "aliases": [
+        "satadd"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Signed absolute value",
+      "category": "Arithmetic and data path",
+      "difficulty": "Beginner",
+      "summary": "Returns the magnitude of a two's-complement signed input.",
+      "code": "assign magnitude = signed_value[WIDTH-1]\n                 ? (~signed_value + 1'b1)\n                 : signed_value;",
+      "aliases": [
+        "absval"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Accumulator with clear",
+      "category": "Arithmetic and data path",
+      "difficulty": "Beginner",
+      "summary": "Adds samples into a wider running total under clock-enable control.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset || clear) begin\n        accumulator <= '0;\n    end else if (sample_valid) begin\n        accumulator <= accumulator + sample_value;\n    end\nend",
+      "aliases": [
+        "accum"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Power-of-two moving average",
+      "category": "Arithmetic and data path",
+      "difficulty": "Advanced",
+      "summary": "Maintains a running sum so an average needs only subtraction, addition, and a shift.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        sample_index <= '0;\n        running_sum <= '0;\n        for (int i = 0; i < SAMPLE_COUNT; i++) samples[i] <= '0;\n    end else if (sample_valid) begin\n        running_sum <= running_sum - samples[sample_index] + new_sample;\n        samples[sample_index] <= new_sample;\n        sample_index <= sample_index + 1'b1;\n    end\nend\n\nassign average = running_sum >> $clog2(SAMPLE_COUNT);",
+      "aliases": [
+        "movavg"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Barrel shifter",
+      "category": "Arithmetic and data path",
+      "difficulty": "Intermediate",
+      "summary": "Performs a variable left or right logical shift in combinational logic.",
+      "code": "always_comb begin\n    if (shift_left) shifted_data = input_data << shift_amount;\n    else            shifted_data = input_data >> shift_amount;\nend",
+      "aliases": [
+        "barrel"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Leading-zero counter",
+      "category": "Arithmetic and data path",
+      "difficulty": "Advanced",
+      "summary": "Counts zeros from the most-significant bit until the first one.",
+      "code": "always_comb begin\n    leading_zeros = WIDTH;\n    found_one = 1'b0;\n    for (int i = WIDTH-1; i >= 0; i--) begin\n        if (!found_one && input_data[i]) begin\n            leading_zeros = WIDTH-1-i;\n            found_one = 1'b1;\n        end\n    end\nend",
+      "aliases": [
+        "lzc"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Fibonacci LFSR",
+      "category": "Arithmetic and data path",
+      "difficulty": "Intermediate",
+      "summary": "Generates a repeatable pseudo-random sequence from a nonzero seed.",
+      "code": "logic feedback;\nassign feedback = lfsr[15] ^ lfsr[13] ^ lfsr[12] ^ lfsr[10];\n\nalways_ff @(posedge clk) begin\n    if (reset) begin\n        lfsr <= 16'h0001;\n    end else if (advance) begin\n        lfsr <= {lfsr[14:0], feedback};\n    end\nend",
+      "aliases": [
+        "lfsr"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Ready-valid pipeline register",
+      "category": "Interfaces and handshakes",
+      "difficulty": "Intermediate",
+      "summary": "Moves one transfer stage while applying backpressure correctly.",
+      "code": "assign input_ready = !output_valid || output_ready;\n\nalways_ff @(posedge clk) begin\n    if (reset) begin\n        output_valid <= 1'b0;\n    end else if (input_ready) begin\n        output_valid <= input_valid;\n        if (input_valid) output_data <= input_data;\n    end\nend",
+      "aliases": [
+        "rvpipe"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "One-entry skid buffer",
+      "category": "Interfaces and handshakes",
+      "difficulty": "Advanced",
+      "summary": "Temporarily stores one ready-valid transfer when downstream stalls.",
+      "code": "assign input_ready = !buffer_valid;\nassign output_valid = buffer_valid || input_valid;\nassign output_data = buffer_valid ? buffer_data : input_data;\n\nalways_ff @(posedge clk) begin\n    if (reset) begin\n        buffer_valid <= 1'b0;\n    end else begin\n        if (input_valid && input_ready && !output_ready) begin\n            buffer_data <= input_data;\n            buffer_valid <= 1'b1;\n        end else if (output_ready) begin\n            buffer_valid <= 1'b0;\n        end\n    end\nend",
+      "aliases": [
+        "skid"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "UART baud-rate tick",
+      "category": "Interfaces and handshakes",
+      "difficulty": "Intermediate",
+      "summary": "Creates the clock-enable tick used by a UART transmitter or receiver.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        baud_count <= '0;\n        baud_tick <= 1'b0;\n    end else if (baud_count == CLKS_PER_BIT-1) begin\n        baud_count <= '0;\n        baud_tick <= 1'b1;\n    end else begin\n        baud_count <= baud_count + 1'b1;\n        baud_tick <= 1'b0;\n    end\nend",
+      "aliases": [
+        "uartbaud"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "UART receive start detector",
+      "category": "Interfaces and handshakes",
+      "difficulty": "Intermediate",
+      "summary": "Detects a falling edge on an already synchronized UART receive input.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) rx_sync_d <= 1'b1;\n    else       rx_sync_d <= rx_sync;\nend\n\nassign uart_start = rx_sync_d & ~rx_sync;",
+      "aliases": [
+        "uartstart"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "SPI mode-0 shift register",
+      "category": "Interfaces and handshakes",
+      "difficulty": "Advanced",
+      "summary": "Samples MISO and advances MOSI in the SPI clock domain; synchronize completed data before another domain uses it.",
+      "code": "always_ff @(posedge spi_clk) begin\n    if (!chip_select_n) begin\n        rx_shift <= {rx_shift[6:0], miso};\n    end\nend\n\nalways_ff @(negedge spi_clk) begin\n    if (!chip_select_n) begin\n        tx_shift <= {tx_shift[6:0], 1'b0};\n    end\nend\n\nassign mosi = tx_shift[7];",
+      "aliases": [
+        "spishift"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "I2C open-drain output",
+      "category": "Interfaces and handshakes",
+      "difficulty": "Intermediate",
+      "summary": "Drives an I2C line low or releases it; the board must provide the required pull-up.",
+      "code": "assign sda = drive_sda_low ? 1'b0 : 1'bz;\nassign sampled_sda = sda;",
+      "aliases": [
+        "i2cod"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Memory-mapped register write",
+      "category": "Interfaces and handshakes",
+      "difficulty": "Beginner",
+      "summary": "Updates a control register when write-enable and its address match.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        control_register <= RESET_VALUE;\n    end else if (write_enable && address == CONTROL_ADDRESS) begin\n        control_register <= write_data;\n    end\nend",
+      "aliases": [
+        "regwrite"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Interrupt event latch",
+      "category": "Interfaces and handshakes",
+      "difficulty": "Intermediate",
+      "summary": "Keeps an interrupt pending until it is acknowledged.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        interrupt_pending <= 1'b0;\n    end else begin\n        if (interrupt_ack)   interrupt_pending <= 1'b0;\n        if (interrupt_event) interrupt_pending <= 1'b1;\n    end\nend\n\nassign interrupt_request = interrupt_pending;",
+      "aliases": [
+        "irq"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Synchronous single-port RAM",
+      "category": "Memories and buffers",
+      "difficulty": "Intermediate",
+      "summary": "Infers a RAM with synchronous write and registered read data.",
+      "code": "logic [DATA_WIDTH-1:0] memory [0:DEPTH-1];\n\nalways_ff @(posedge clk) begin\n    if (write_enable) begin\n        memory[address] <= write_data;\n    end\n    read_data <= memory[address];\nend",
+      "aliases": [
+        "spram"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Simple dual-port RAM",
+      "category": "Memories and buffers",
+      "difficulty": "Advanced",
+      "summary": "Uses independent synchronous ports; verify same-address read/write behavior for the target memory primitive.",
+      "code": "logic [DATA_WIDTH-1:0] memory [0:DEPTH-1];\n\nalways_ff @(posedge write_clk) begin\n    if (write_enable) memory[write_address] <= write_data;\nend\n\nalways_ff @(posedge read_clk) begin\n    read_data <= memory[read_address];\nend",
+      "aliases": [
+        "dpram"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Case-statement ROM",
+      "category": "Memories and buffers",
+      "difficulty": "Beginner",
+      "summary": "Describes a small constant lookup table with a complete default.",
+      "code": "always_comb begin\n    unique case (address)\n        3'd0: rom_data = 8'h3C;\n        3'd1: rom_data = 8'h42;\n        3'd2: rom_data = 8'h81;\n        3'd3: rom_data = 8'hA5;\n        default: rom_data = 8'h00;\n    endcase\nend",
+      "aliases": [
+        "romcase"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Initialized ROM array",
+      "category": "Memories and buffers",
+      "difficulty": "Intermediate",
+      "summary": "Loads constant contents from a hex file; confirm memory-file synthesis support in the target toolchain.",
+      "code": "logic [DATA_WIDTH-1:0] rom [0:DEPTH-1];\n\ninitial begin\n    $readmemh(\"rom_data.hex\", rom);\nend\n\nalways_ff @(posedge clk) begin\n    read_data <= rom[address];\nend",
+      "aliases": [
+        "rominit"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Synchronous FIFO core",
+      "category": "Memories and buffers",
+      "difficulty": "Advanced",
+      "summary": "Implements single-clock FIFO storage with guarded operations and explicit pointer wrapping.",
+      "code": "logic [DATA_WIDTH-1:0] fifo_memory [0:DEPTH-1];\n\nassign empty = (item_count == 0);\nassign full = (item_count == DEPTH);\n\nalways_ff @(posedge clk) begin\n    if (reset) begin\n        write_pointer <= '0;\n        read_pointer <= '0;\n        item_count <= '0;\n    end else begin\n        if (write_enable && !full) begin\n            fifo_memory[write_pointer] <= write_data;\n            write_pointer <= (write_pointer == DEPTH-1) ? '0 : write_pointer + 1'b1;\n        end\n        if (read_enable && !empty) begin\n            read_data <= fifo_memory[read_pointer];\n            read_pointer <= (read_pointer == DEPTH-1) ? '0 : read_pointer + 1'b1;\n        end\n        case ({write_enable && !full, read_enable && !empty})\n            2'b10: item_count <= item_count + 1'b1;\n            2'b01: item_count <= item_count - 1'b1;\n            default: item_count <= item_count;\n        endcase\n    end\nend",
+      "aliases": [
+        "fifo"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Circular-buffer pointer",
+      "category": "Memories and buffers",
+      "difficulty": "Intermediate",
+      "summary": "Wraps a pointer explicitly for depths that are not powers of two.",
+      "code": "always_ff @(posedge clk) begin\n    if (reset) begin\n        pointer <= '0;\n    end else if (advance) begin\n        if (pointer == DEPTH-1) pointer <= '0;\n        else                    pointer <= pointer + 1'b1;\n    end\nend",
+      "aliases": [
+        "ringptr"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Tapped delay line",
+      "category": "Memories and buffers",
+      "difficulty": "Intermediate",
+      "summary": "Delays a data word by a fixed number of enabled clock cycles.",
+      "code": "logic [DATA_WIDTH-1:0] delay_pipe [0:DELAY_CYCLES];\n\nalways_ff @(posedge clk) begin\n    if (enable) begin\n        delay_pipe[0] <= input_data;\n        for (int i = 1; i <= DELAY_CYCLES; i++) begin\n            delay_pipe[i] <= delay_pipe[i-1];\n        end\n    end\nend\n\nassign delayed_data = delay_pipe[DELAY_CYCLES];",
+      "aliases": [
+        "delayline"
+      ],
+      "synthesizable": true
+    },
+    {
+      "title": "Testbench clock generator",
+      "category": "Verification",
+      "difficulty": "Beginner",
+      "summary": "Generates a periodic testbench clock; never place delay controls in synthesizable RTL.",
+      "code": "logic clk = 1'b0;\nalways #(CLOCK_PERIOD_NS / 2.0) clk = ~clk;",
+      "aliases": [
+        "tbclock"
+      ],
+      "synthesizable": false
+    },
+    {
+      "title": "Testbench reset sequence",
+      "category": "Verification",
+      "difficulty": "Beginner",
+      "summary": "Applies reset for several rising edges before starting stimulus.",
+      "code": "initial begin\n    reset = 1'b1;\n    repeat (5) @(posedge clk);\n    reset = 1'b0;\n    @(posedge clk);\nend",
+      "aliases": [
+        "tbreset"
+      ],
+      "synthesizable": false
+    },
+    {
+      "title": "Immediate simulation assertion",
+      "category": "Verification",
+      "difficulty": "Beginner",
+      "summary": "Stops a simulation immediately when an observed value is wrong.",
+      "code": "if (actual !== expected) begin\n    $error(\"Mismatch: actual=%0h expected=%0h\", actual, expected);\n    $fatal(1);\nend",
+      "aliases": [
+        "assertx"
+      ],
+      "synthesizable": false
+    },
+    {
+      "title": "Concurrent property assertion",
+      "category": "Verification",
+      "difficulty": "Advanced",
+      "summary": "Checks on every clock that a request receives an acknowledge within four cycles.",
+      "code": "property request_gets_acknowledged;\n    @(posedge clk) disable iff (reset)\n        request |-> ##[1:4] acknowledge;\nendproperty\n\nassert property (request_gets_acknowledged)\n    else $error(\"Request was not acknowledged in time\");",
+      "aliases": [
+        "sva_reqack"
+      ],
+      "synthesizable": false
+    },
+    {
+      "title": "Simulation timeout guard",
+      "category": "Verification",
+      "difficulty": "Beginner",
+      "summary": "Prevents a broken testbench from running forever.",
+      "code": "initial begin\n    #(MAX_SIMULATION_NS);\n    $fatal(1, \"TIMEOUT: simulation did not finish\");\nend",
+      "aliases": [
+        "tbtimeout"
+      ],
+      "synthesizable": false
+    },
+    {
+      "title": "Wait for clock cycles",
+      "category": "Verification",
+      "difficulty": "Beginner",
+      "summary": "Advances a testbench by an exact number of synchronous cycles.",
+      "code": "repeat (CYCLE_COUNT) @(posedge clk);",
+      "aliases": [
+        "waitcycles"
+      ],
+      "synthesizable": false
+    },
+    {
+      "title": "Reusable pulse task",
+      "category": "Verification",
+      "difficulty": "Intermediate",
+      "summary": "Drives a clean one-cycle input pulse from a testbench.",
+      "code": "task automatic send_pulse;\n    begin\n        @(negedge clk);\n        pulse_input = 1'b1;\n        @(negedge clk);\n        pulse_input = 1'b0;\n    end\nendtask",
+      "aliases": [
+        "tbpulse"
+      ],
+      "synthesizable": false
+    },
+    {
+      "title": "Deterministic randomized stimulus",
+      "category": "Verification",
+      "difficulty": "Intermediate",
+      "summary": "Applies bounded pseudo-random inputs while retaining a repeatable seed.",
+      "code": "int unsigned random_seed = 32'h1A2B3C4D;\n\nrepeat (100) begin\n    @(negedge clk);\n    input_valid = $urandom(random_seed) & 1'b1;\n    input_data = $urandom(random_seed);\nend",
+      "aliases": [
+        "tbrandom"
+      ],
+      "synthesizable": false
+    }
+  ]
+}

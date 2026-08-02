@@ -1,0 +1,26 @@
+{
+  "$schema": "../../schema/board.schema.json",
+  "schemaVersion": 1,
+  "id": "tang_primer_20k",
+  "name": "Sipeed Tang Primer 20K with Dock",
+  "vendor": "Gowin",
+  "family": "GW2A-18",
+  "yosysFamily": "gw2a",
+  "device": "GW2A-LV18PG256C8/I7",
+  "logicCells": 20736,
+  "clocks": [
+    { "name": "clk_27mhz", "frequencyHz": 27000000, "pin": "H11", "ioStandard": "LVCMOS33" }
+  ],
+  "programmer": {
+    "backend": "openFPGALoader",
+    "board": "tangprimer20k",
+    "transport": "ftdi-mpsse",
+    "jtagInterface": 0,
+    "uartInterface": 1,
+    "usbVid": "0403",
+    "usbPid": "6010"
+  },
+  "constraints": ["constraints/primer20k_dock.cst"],
+  "documentation": "README.md",
+  "capabilities": ["jtag", "sram", "flash", "uart", "leds", "buttons", "hdmi", "camera", "sd-card"]
+}

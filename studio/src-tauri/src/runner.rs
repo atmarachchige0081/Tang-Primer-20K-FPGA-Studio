@@ -1,4 +1,5 @@
 use crate::models::{BuildAction, BuildEvent, CommandResult, Diagnostic, DiagnosticSeverity};
+use crate::reports;
 use crate::security::{canonical_workspace, safe_existing_path};
 use chrono::Utc;
 use regex::Regex;
@@ -181,12 +182,29 @@ fn run_blocking(
     };
     registry.remove(&job_id);
     let diagnostics = parse_diagnostics(&captured);
+    let success = exit_status.success() && !cancellation.load(Ordering::SeqCst);
+    let duration_ms = started.elapsed().as_millis();
+    if let Err(error) = reports::record_history(
+        &workspace.to_string_lossy(),
+        &project,
+        action,
+        success,
+        duration_ms,
+    ) {
+        emit(
+            &app,
+            &job_id,
+            action.as_str(),
+            "system",
+            &format!("Build history was not saved: {error}"),
+        );
+    }
     Ok(CommandResult {
         job_id,
         action,
-        success: exit_status.success() && !cancellation.load(Ordering::SeqCst),
+        success,
         exit_code: exit_status.code(),
-        duration_ms: started.elapsed().as_millis(),
+        duration_ms,
         diagnostics,
     })
 }

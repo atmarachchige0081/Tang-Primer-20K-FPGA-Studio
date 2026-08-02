@@ -1,4 +1,7 @@
 import unittest
+from dataclasses import asdict
+import json
+from pathlib import Path
 
 from ide.hdl_patterns import (
     CATEGORIES,
@@ -56,6 +59,13 @@ class HDLPatternLibraryTests(unittest.TestCase):
             if pattern.synthesizable:
                 for token in forbidden:
                     self.assertNotIn(token, pattern.code, pattern.title)
+
+    def test_packaged_v2_catalog_matches_source_library(self):
+        root = Path(__file__).resolve().parents[2]
+        payload = json.loads((root / "ip" / "catalog.json").read_text(encoding="utf-8"))
+        self.assertEqual(1, payload["schemaVersion"])
+        expected = json.loads(json.dumps([asdict(pattern) for pattern in PATTERNS]))
+        self.assertEqual(expected, payload["patterns"])
 
 
 if __name__ == "__main__":

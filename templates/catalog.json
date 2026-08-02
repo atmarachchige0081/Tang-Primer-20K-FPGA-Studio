@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "templates": [
+    {
+      "id": "led_button",
+      "name": "LED and button starter",
+      "description": "Active-low board I/O, a counter, self-checking simulation, and a saved waveform layout.",
+      "level": "Beginner",
+      "category": "Fundamentals",
+      "base": "projects/_template",
+      "hardwareReady": true,
+      "tags": ["led", "button", "counter"]
+    },
+    {
+      "id": "uart_terminal",
+      "name": "UART terminal",
+      "description": "Verified 115200-baud TX/RX with greeting, echo, terminal workflow, and loopback simulation.",
+      "level": "Beginner +",
+      "category": "Interfaces",
+      "base": "projects/03_uart_terminal",
+      "hardwareReady": true,
+      "tags": ["uart", "serial", "fsm"]
+    },
+    {
+      "id": "spi_controller",
+      "name": "SPI controller",
+      "description": "Mode-0 byte transfers with start/busy/done handshake and a self-checking peripheral model.",
+      "level": "Intermediate",
+      "category": "Interfaces",
+      "base": "projects/_template",
+      "overlay": "templates/spi_controller",
+      "hardwareReady": true,
+      "tags": ["spi", "shift-register", "fsm"]
+    },
+    {
+      "id": "pwm_controller",
+      "name": "Button-controlled PWM",
+      "description": "Synchronizers, debouncing, state control, and six-channel LED PWM with verification.",
+      "level": "Beginner +",
+      "category": "Control",
+      "base": "projects/01_button_led_pwm",
+      "hardwareReady": true,
+      "tags": ["pwm", "debounce", "cdc"]
+    },
+    {
+      "id": "vga_timing",
+      "name": "VGA timing laboratory",
+      "description": "Parameterizable raster timing core verified at compact simulation dimensions; sync state is shown on LEDs.",
+      "level": "Intermediate",
+      "category": "Video",
+      "base": "projects/_template",
+      "overlay": "templates/vga_timing",
+      "hardwareReady": true,
+      "tags": ["vga", "timing", "counters"]
+    },
+    {
+      "id": "riscv_scaffold",
+      "name": "RISC-V core scaffold",
+      "description": "A verified RV32I field decoder and program-counter shell for growing into a multi-cycle CPU.",
+      "level": "Advanced starter",
+      "category": "Processors",
+      "base": "projects/_template",
+      "overlay": "templates/riscv_scaffold",
+      "hardwareReady": true,
+      "tags": ["risc-v", "rv32i", "decoder"]
+    }
+  ]
+}

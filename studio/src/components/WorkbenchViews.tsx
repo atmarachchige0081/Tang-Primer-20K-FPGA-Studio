@@ -1,15 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Background, Controls, Handle, MiniMap, Position, ReactFlow, type NodeProps } from "@xyflow/react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Activity, ArrowRight, BookOpen, Box, Cable, CheckCircle2, ChevronRight, CircuitBoard, Clock3, Cpu, Gauge, GitBranch, Lightbulb, MemoryStick, Network, Play, Plus, RefreshCw, Search, ShieldCheck, Sparkles, TerminalSquare, Waves, Zap } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Box, Cable, CheckCircle2, ChevronRight, CircuitBoard, Clock3, Cpu, Gauge, Lightbulb, MemoryStick, Network, Play, Plus, RefreshCw, Search, ShieldCheck, Sparkles, TerminalSquare, Waves, Zap } from "lucide-react";
 import { bridge } from "../lib/bridge";
 import { useWorkbench } from "../store/workbench";
-import type { SerialDevice } from "../types";
-
-const history = [
-  { name: "#14", fmax: 58, lut: 2400 }, { name: "#15", fmax: 63, lut: 2280 }, { name: "#16", fmax: 61, lut: 2180 },
-  { name: "#17", fmax: 68, lut: 2040 }, { name: "#18", fmax: 72.4, lut: 1842 },
-];
+import type { BuildHistoryEntry, NetlistGraph, SerialDevice, WaveSignal, WaveformData } from "../types";
 
 function Metric({ label, value, note, icon: Icon, accent = "blue" }: { label: string; value: string; note: string; icon: typeof Cpu; accent?: string }): React.JSX.Element {
   return <article className={`metric-card accent-${accent}`}><div className="metric-icon"><Icon size={18} /></div><div><span>{label}</span><strong>{value}</strong><small>{note}</small></div></article>;
@@ -17,20 +12,31 @@ function Metric({ label, value, note, icon: Icon, accent = "blue" }: { label: st
 
 export function DashboardView(): React.JSX.Element {
   const build = useWorkbench((state) => state.build);
-  const lutPercent = build?.lutUsed && build.lutTotal ? Math.round(build.lutUsed / build.lutTotal * 100) : 0;
+  const root = useWorkbench((state) => state.root);
+  const project = useWorkbench((state) => state.projectPath);
+  const [history, setHistory] = useState<BuildHistoryEntry[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const loadHistory = async () => { try { setHistory(await bridge.buildHistory(root, project)); setHistoryError(null); } catch (reason) { setHistoryError(reason instanceof Error ? reason.message : String(reason)); } };
+  useEffect(() => { if (root) void loadHistory(); }, [root, project, build?.updatedAt]);
+  const lutPercent = build?.lutUsed != null && build.lutTotal ? Math.round(build.lutUsed / build.lutTotal * 100) : 0;
+  const chartHistory = history.filter((entry) => entry.action === "build" && entry.fmaxMHz != null).slice(-12).map((entry) => ({ name: `#${entry.buildNumber}`, fmax: entry.fmaxMHz, lut: entry.lutUsed }));
+  const resourceData = [
+    { type: "LUT", used: build?.lutUsed ?? 0, free: Math.max(0, (build?.lutTotal ?? 0) - (build?.lutUsed ?? 0)) },
+    { type: "FF", used: build?.registersUsed ?? 0, free: Math.max(0, (build?.registersTotal ?? 0) - (build?.registersUsed ?? 0)) },
+  ];
   return <section className="feature-view dashboard-view">
-    <div className="feature-header"><div><p className="eyebrow">Design intelligence</p><h1>Implementation overview</h1><p>Timing, utilization, and build health for the active project.</p></div><button className="secondary-button"><GitBranch size={15} /> Compare builds</button></div>
+    <div className="feature-header"><div><p className="eyebrow">Design intelligence</p><h1>Implementation overview</h1><p>Timing, utilization, and build health for the active project.</p></div><button className="secondary-button" onClick={() => void loadHistory()}><RefreshCw size={15} /> Refresh analytics</button></div>
     <div className="metric-grid">
       <Metric label="Maximum frequency" value={build?.fmaxMHz ? `${build.fmaxMHz.toFixed(1)} MHz` : "Not built"} note={`Target ${build?.targetMHz?.toFixed(0) ?? 27} MHz`} icon={Gauge} accent="cyan" />
-      <Metric label="Logic utilization" value={build?.lutUsed ? `${build.lutUsed.toLocaleString()} LUTs` : "—"} note={`${lutPercent}% of device`} icon={Cpu} accent="violet" />
-      <Metric label="Worst slack" value={build?.worstSlackNs != null ? `${build.worstSlackNs >= 0 ? "+" : ""}${build.worstSlackNs.toFixed(2)} ns` : "—"} note="All clocks passing" icon={Clock3} accent="green" />
-      <Metric label="Bitstream" value={build?.bitstreamBytes ? `${Math.round(build.bitstreamBytes / 1024)} KiB` : "—"} note="SRAM and flash ready" icon={MemoryStick} accent="amber" />
+      <Metric label="Logic utilization" value={build?.lutUsed != null ? `${build.lutUsed.toLocaleString()} LUTs` : "—"} note={build?.lutTotal ? `${lutPercent}% of device` : "Run Build to measure"} icon={Cpu} accent="violet" />
+      <Metric label="Worst slack" value={build?.worstSlackNs != null ? `${build.worstSlackNs >= 0 ? "+" : ""}${build.worstSlackNs.toFixed(2)} ns` : "—"} note={build?.worstSlackNs == null ? "No timing report" : build.worstSlackNs >= 0 ? "Timing passes" : "Timing violation"} icon={Clock3} accent={build?.worstSlackNs != null && build.worstSlackNs < 0 ? "amber" : "green"} />
+      <Metric label="Bitstream" value={build?.bitstreamBytes ? `${Math.round(build.bitstreamBytes / 1024)} KiB` : "—"} note={build?.bitstreamBytes ? "Generated locally" : "No bitstream yet"} icon={MemoryStick} accent="amber" />
     </div>
     <div className="chart-grid">
-      <article className="panel-card"><div className="card-title"><div><h2>Timing trend</h2><p>Maximum frequency across recent builds</p></div><span className="status-good"><CheckCircle2 size={13} /> passing</span></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><AreaChart data={history}><defs><linearGradient id="freqFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--accent)" stopOpacity={0.45}/><stop offset="100%" stopColor="var(--accent)" stopOpacity={0}/></linearGradient></defs><CartesianGrid stroke="var(--line-subtle)" vertical={false}/><XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11}/><YAxis stroke="var(--text-muted)" fontSize={11} domain={[0, 90]}/><Tooltip contentStyle={{ background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 8 }}/><Area type="monotone" dataKey="fmax" stroke="var(--accent)" fill="url(#freqFill)" strokeWidth={2}/></AreaChart></ResponsiveContainer></div></article>
-      <article className="panel-card"><div className="card-title"><div><h2>Resource profile</h2><p>Current device occupancy</p></div><button className="text-button">Details <ChevronRight size={13}/></button></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><BarChart data={[{ type: "LUT", used: 1842, free: 18894 }, { type: "FF", used: 1106, free: 14446 }, { type: "BRAM", used: 4, free: 42 }, { type: "DSP", used: 2, free: 46 }]}><CartesianGrid stroke="var(--line-subtle)" vertical={false}/><XAxis dataKey="type" stroke="var(--text-muted)" fontSize={11}/><YAxis hide/><Tooltip contentStyle={{ background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 8 }}/><Bar dataKey="used" stackId="a" fill="var(--purple)" radius={[0,0,3,3]}/><Bar dataKey="free" stackId="a" fill="var(--surface-hover)" radius={[3,3,0,0]}/></BarChart></ResponsiveContainer></div></article>
+      <article className="panel-card"><div className="card-title"><div><h2>Timing trend</h2><p>Maximum frequency across recorded builds</p></div>{build?.worstSlackNs != null && <span className={build.worstSlackNs >= 0 ? "status-good" : "status-warn"}>{build.worstSlackNs >= 0 && <CheckCircle2 size={13} />} {build.worstSlackNs >= 0 ? "passing" : "violation"}</span>}</div><div className="chart-wrap">{chartHistory.length ? <ResponsiveContainer width="100%" height="100%"><AreaChart data={chartHistory}><defs><linearGradient id="freqFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--accent)" stopOpacity={0.45}/><stop offset="100%" stopColor="var(--accent)" stopOpacity={0}/></linearGradient></defs><CartesianGrid stroke="var(--line-subtle)" vertical={false}/><XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11}/><YAxis stroke="var(--text-muted)" fontSize={11}/><Tooltip contentStyle={{ background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 8 }}/><Area type="monotone" dataKey="fmax" stroke="var(--accent)" fill="url(#freqFill)" strokeWidth={2}/></AreaChart></ResponsiveContainer> : <div className="chart-empty">Run Build from the toolbar to start a timing trend.</div>}</div></article>
+      <article className="panel-card"><div className="card-title"><div><h2>Resource profile</h2><p>Current device occupancy</p></div><Cpu size={17}/></div><div className="chart-wrap">{build?.lutTotal || build?.registersTotal ? <ResponsiveContainer width="100%" height="100%"><BarChart data={resourceData}><CartesianGrid stroke="var(--line-subtle)" vertical={false}/><XAxis dataKey="type" stroke="var(--text-muted)" fontSize={11}/><YAxis hide/><Tooltip contentStyle={{ background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 8 }}/><Bar dataKey="used" stackId="a" fill="var(--purple)" radius={[0,0,3,3]}/><Bar dataKey="free" stackId="a" fill="var(--surface-hover)" radius={[3,3,0,0]}/></BarChart></ResponsiveContainer> : <div className="chart-empty">No utilization report is available yet.</div>}</div></article>
     </div>
-    <article className="panel-card path-card"><div className="card-title"><div><h2>Critical paths</h2><p>The three longest combinational paths</p></div><span>Slack</span></div>{["uart_tx/baud_counter → uart_tx/shift_reg", "pwm/channel_counter → pwm/compare", "control/state_reg → datapath/enable"].map((path, index) => <div className="path-row" key={path}><span className="rank">{index + 1}</span><code>{path}</code><span className="path-meter"><i style={{ width: `${80-index*18}%` }}/></span><strong>+{(8.12 + index*2.1).toFixed(2)} ns</strong></div>)}</article>
+    <article className="panel-card path-card"><div className="card-title"><div><h2>Recent jobs</h2><p>Local commands recorded for this project</p></div><span>{history.length} total</span></div>{historyError ? <div className="empty-small">{historyError}</div> : history.length ? history.slice(-5).reverse().map((entry) => <div className="path-row history-row" key={entry.buildNumber}><span className={`job-state ${entry.success ? "passed" : "failed"}`}>{entry.success ? "PASS" : "FAIL"}</span><code>#{entry.buildNumber} · {entry.action}</code><span>{new Date(entry.completedAt).toLocaleString()}</span><strong>{(entry.durationMs / 1000).toFixed(1)}s</strong></div>) : <div className="empty-small">No jobs have been run from FPGA Studio yet.</div>}</article>
   </section>;
 }
 
@@ -40,43 +46,224 @@ function LogicNode({ data }: NodeProps): React.JSX.Element {
 }
 
 export function NetlistView(): React.JSX.Element {
-  const nodes = useMemo(() => [
-    { id: "clk", position: { x: 20, y: 110 }, data: { label: "clk", kind: "PORT", detail: "27 MHz input" }, type: "logic" },
-    { id: "counter", position: { x: 250, y: 50 }, data: { label: "counter[23:0]", kind: "REGISTER", detail: "24 flip-flops" }, type: "logic" },
-    { id: "reduce", position: { x: 490, y: 70 }, data: { label: "&counter", kind: "LOGIC", detail: "reduction AND" }, type: "logic" },
-    { id: "led", position: { x: 720, y: 115 }, data: { label: "led", kind: "PORT", detail: "output" }, type: "logic" },
-    { id: "reset", position: { x: 20, y: 250 }, data: { label: "reset_n", kind: "PORT", detail: "active low" }, type: "logic" },
-  ], []);
-  const edges = useMemo(() => [
-    { id: "clk-counter", source: "clk", target: "counter", animated: true }, { id: "counter-reduce", source: "counter", target: "reduce" }, { id: "reduce-led", source: "reduce", target: "led", animated: true }, { id: "reset-counter", source: "reset", target: "counter" }, { id: "reset-led", source: "reset", target: "led" },
-  ], []);
-  return <section className="feature-view graph-view"><div className="feature-header compact"><div><p className="eyebrow">Elaborated design</p><h1>Netlist explorer</h1></div><div className="header-actions"><label className="inline-search"><Search size={14}/><input aria-label="Search netlist" placeholder="Find cell or net" /></label><button className="secondary-button"><Zap size={15}/> Critical path</button></div></div><div className="graph-shell"><div className="graph-breadcrumb"><Box size={14}/> top <ChevronRight size={13}/> blink_controller <span>5 nodes · 5 nets</span></div><ReactFlow nodes={nodes} edges={edges} nodeTypes={{ logic: LogicNode }} fitView colorMode="system"><Background color="var(--line-subtle)"/><Controls/><MiniMap pannable zoomable nodeColor="var(--accent)"/></ReactFlow></div></section>;
+  const root = useWorkbench((state) => state.root);
+  const project = useWorkbench((state) => state.projectPath);
+  const appendOutput = useWorkbench((state) => state.appendOutput);
+  const setBottomPanel = useWorkbench((state) => state.setBottomPanel);
+  const [graph, setGraph] = useState<NetlistGraph | null>(null);
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [building, setBuilding] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try { setGraph(await bridge.readNetlist(root, project)); }
+    catch (reason) { setGraph(null); setError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { if (root) void load(); }, [root, project]);
+
+  const build = async () => {
+    const jobId = `netlist-build-${Date.now()}`;
+    setBuilding(true);
+    setBottomPanel("output");
+    try {
+      const result = await bridge.run(root, project, "build", jobId);
+      appendOutput({ jobId, phase: "build", stream: result.success ? "system" : "stderr", message: result.success ? "Build passed; netlist reloaded." : `Build failed with exit code ${result.exitCode ?? "unknown"}.`, timestamp: new Date().toISOString() });
+      if (result.success) await load();
+    } catch (reason) {
+      appendOutput({ jobId, phase: "build", stream: "stderr", message: reason instanceof Error ? reason.message : String(reason), timestamp: new Date().toISOString() });
+    } finally { setBuilding(false); }
+  };
+
+  const visible = useMemo(() => {
+    if (!graph) return [];
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return graph.nodes.slice(0, 250);
+    const matches = new Set(graph.nodes.filter((node) => `${node.label} ${node.kind} ${node.detail}`.toLowerCase().includes(normalized)).map((node) => node.id));
+    for (const edge of graph.edges) {
+      if (matches.has(edge.source)) matches.add(edge.target);
+      if (matches.has(edge.target)) matches.add(edge.source);
+    }
+    return graph.nodes.filter((node) => matches.has(node.id)).slice(0, 250);
+  }, [graph, query]);
+  const nodes = useMemo(() => {
+    let input = 0; let output = 0; let cell = 0;
+    return visible.map((node) => {
+      let position: { x: number; y: number };
+      if (node.kind === "INPUT" || node.kind === "INOUT") position = { x: 20, y: 45 + input++ * 105 };
+      else if (node.kind === "OUTPUT") position = { x: 1020, y: 45 + output++ * 105 };
+      else { position = { x: 250 + cell % 4 * 210, y: 45 + Math.floor(cell++ / 4) * 105 }; }
+      return { id: node.id, position, data: { label: node.label, kind: node.kind, detail: node.detail }, type: "logic" as const };
+    });
+  }, [visible]);
+  const edges = useMemo(() => {
+    if (!graph) return [];
+    const ids = new Set(visible.map((node) => node.id));
+    return graph.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)).map((edge) => ({ id: edge.id, source: edge.source, target: edge.target, label: edge.nets.slice(0, 2).join(", "), animated: edge.nets.some((net) => /clk|clock/i.test(net)) }));
+  }, [graph, visible]);
+
+  return <section className="feature-view graph-view"><div className="feature-header compact"><div><p className="eyebrow">Synthesized design</p><h1>Netlist explorer</h1></div><div className="header-actions"><label className="inline-search"><Search size={14}/><input aria-label="Search netlist" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find cell, type, or category" /></label><button className="secondary-button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? "spin" : ""} size={15}/> Reload</button></div></div>{loading ? <div className="view-state"><RefreshCw className="spin" size={20}/><strong>Reading synthesized netlist…</strong></div> : error ? <div className="view-state error-state"><Network size={25}/><strong>No synthesized netlist available</strong><p>{error}</p><button className="primary-button" onClick={() => void build()} disabled={building}><Zap size={14}/> {building ? "Building…" : "Build design"}</button></div> : graph && <div className="graph-shell"><div className="graph-breadcrumb"><Box size={14}/> {graph.moduleName} <span>{graph.totalCells.toLocaleString()} cells · {graph.edges.length.toLocaleString()} connections · {graph.creator}{graph.truncated ? " · viewer safely truncated" : ""}</span></div><ReactFlow nodes={nodes} edges={edges} nodeTypes={{ logic: LogicNode }} fitView colorMode="system"><Background color="var(--line-subtle)"/><Controls/><MiniMap pannable zoomable nodeColor="var(--accent)"/></ReactFlow></div>}</section>;
 }
 
-const signals = [
-  { name: "clk", color: "#5eead4", points: "0,30 24,30 24,8 48,8 48,30 72,30 72,8 96,8 96,30 120,30 120,8 144,8 144,30 168,30 168,8 192,8 192,30 216,30 216,8 240,8 240,30 264,30 264,8 288,8 288,30 312,30 312,8 336,8 336,30 360,30 360,8 384,8 384,30 408,30 408,8 432,8 432,30 456,30 456,8 480,8 480,30" },
-  { name: "reset_n", color: "#fbbf24", points: "0,30 48,30 48,8 480,8" },
-  { name: "counter[23:0]", color: "#a78bfa", bus: true },
-  { name: "led", color: "#60a5fa", points: "0,30 250,30 250,8 410,8 410,30 480,30" },
-];
+const waveformColors = ["#5eead4", "#fbbf24", "#a78bfa", "#60a5fa", "#fb7185", "#4ade80", "#f97316", "#c084fc"];
+
+function scalarPoints(signal: WaveSignal, endTime: number): string {
+  if (!signal.samples.length) return "0,19 480,19";
+  const scale = (time: number) => Math.max(0, Math.min(480, time / Math.max(1, endTime) * 480));
+  const level = (value: string) => value === "1" ? 7 : value === "0" ? 30 : 19;
+  const points: string[] = [];
+  let previous = signal.samples[0]!.value;
+  points.push(`0,${level(previous)}`);
+  for (const sample of signal.samples) {
+    const x = scale(sample.time);
+    points.push(`${x},${level(previous)}`, `${x},${level(sample.value)}`);
+    previous = sample.value;
+  }
+  points.push(`480,${level(previous)}`);
+  return points.join(" ");
+}
+
+function busPath(signal: WaveSignal, endTime: number): string {
+  if (!signal.samples.length) return "M0 19 L480 19";
+  const scale = (time: number) => Math.max(0, Math.min(480, time / Math.max(1, endTime) * 480));
+  const commands = ["M0 8"];
+  for (const sample of signal.samples.slice(1)) {
+    const x = scale(sample.time);
+    commands.push(`L${Math.max(0, x - 4)} 8 L${x} 19 L${Math.min(480, x + 4)} 30`);
+  }
+  commands.push("L480 30");
+  return commands.join(" ");
+}
+
+function latestValue(signal: WaveSignal): string {
+  const value = signal.samples.at(-1)?.value ?? "—";
+  if (signal.width === 1 || /[xz]/i.test(value)) return value;
+  const parsed = Number.parseInt(value, 2);
+  return Number.isSafeInteger(parsed) ? `0x${parsed.toString(16).toUpperCase()}` : value;
+}
 
 export function WaveformView(): React.JSX.Element {
-  return <section className="feature-view waveform-view"><div className="feature-header compact"><div><p className="eyebrow">Simulation waveform</p><h1>build/waves.vcd</h1></div><div className="header-actions"><button className="secondary-button"><Plus size={14}/> Cursor</button><button className="secondary-button"><Play size={14}/> Run simulation</button></div></div><div className="wave-tools"><button><Search size={14}/> Find signal</button><button>−</button><span>50 µs/div</span><button>+</button><button>Fit</button><span className="wave-spacer"/><span className="cursor-readout">A 12.400 µs</span><span className="cursor-readout">Δ 3.200 µs</span></div><div className="wave-shell"><div className="signal-list"><div className="signal-header">SIGNALS</div>{signals.map((signal) => <div className="signal-row" key={signal.name}><span style={{ background: signal.color }}/><code>{signal.name}</code><small>{signal.bus ? "00A3FC" : signal.name === "clk" ? "1" : "0"}</small></div>)}</div><div className="wave-canvas"><div className="time-ruler">{[0,10,20,30,40,50].map((n) => <span key={n}>{n} µs</span>)}</div><div className="cursor-line" style={{ left: "52%" }}><span>A</span></div>{signals.map((signal, index) => <div className="wave-row" key={signal.name}>{signal.bus ? <svg viewBox="0 0 480 38" preserveAspectRatio="none"><path d="M0 7 L12 30 L88 30 L100 7 L172 7 L184 30 L260 30 L272 7 L356 7 L368 30 L450 30 L462 7 L480 7" fill="none" stroke={signal.color} strokeWidth="2"/><text x="105" y="22" fill={signal.color} fontSize="12">0001</text><text x="278" y="22" fill={signal.color} fontSize="12">00A3FC</text></svg> : <svg viewBox="0 0 480 38" preserveAspectRatio="none"><polyline points={signal.points} transform="translate(0 2)" fill="none" stroke={signal.color} strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg>}<span className="wave-value" style={{ color: signal.color }}>{index === 0 ? "clock" : ""}</span></div>)}</div></div></section>;
+  const root = useWorkbench((state) => state.root);
+  const project = useWorkbench((state) => state.projectPath);
+  const appendOutput = useWorkbench((state) => state.appendOutput);
+  const setBottomPanel = useWorkbench((state) => state.setBottomPanel);
+  const [waveform, setWaveform] = useState<WaveformData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try { setWaveform(await bridge.readWaveform(root, project)); }
+    catch (reason) { setWaveform(null); setError(reason instanceof Error ? reason.message : String(reason)); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { if (root) void load(); }, [root, project]);
+  const visibleSignals = useMemo(() => waveform?.signals.filter((signal) => `${signal.scope}.${signal.name}`.toLowerCase().includes(query.toLowerCase())).slice(0, 24) ?? [], [waveform, query]);
+  const runSimulation = async () => {
+    const jobId = `waveform-sim-${Date.now()}`;
+    setRunning(true);
+    setBottomPanel("output");
+    try {
+      const result = await bridge.run(root, project, "sim", jobId);
+      appendOutput({ jobId, phase: "sim", stream: result.success ? "system" : "stderr", message: result.success ? "Simulation passed; waveform reloaded." : `Simulation failed with exit code ${result.exitCode ?? "unknown"}.`, timestamp: new Date().toISOString() });
+      if (result.success) await load();
+    } catch (reason) {
+      appendOutput({ jobId, phase: "sim", stream: "stderr", message: reason instanceof Error ? reason.message : String(reason), timestamp: new Date().toISOString() });
+    } finally { setRunning(false); }
+  };
+
+  const ruler = waveform ? Array.from({ length: 6 }, (_, index) => Math.round(waveform.endTime * index / 5)) : [];
+  return <section className="feature-view waveform-view">
+    <div className="feature-header compact"><div><p className="eyebrow">Simulation waveform</p><h1>{waveform?.path ?? "Waveform viewer"}</h1></div><div className="header-actions"><button className="secondary-button" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? "spin" : ""} size={14}/> Reload</button><button className="secondary-button" onClick={() => void runSimulation()} disabled={running}><Play size={14}/> {running ? "Simulating…" : "Run simulation"}</button></div></div>
+    {loading ? <div className="view-state"><RefreshCw className="spin" size={20}/><strong>Reading VCD waveform…</strong></div> : error ? <div className="view-state error-state"><Waves size={24}/><strong>No waveform available</strong><p>{error}</p><button className="primary-button" onClick={() => void runSimulation()}><Play size={14}/> Generate waveform</button></div> : waveform && <>
+      <div className="wave-tools"><label className="wave-search"><Search size={14}/><input aria-label="Find waveform signal" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find signal or scope" /></label><span>{waveform.timescale} timescale</span><span className="wave-spacer"/><span className="cursor-readout">{waveform.signals.length} signals</span>{waveform.truncated && <span className="status-warn">sample limit reached</span>}</div>
+      <div className="wave-shell"><div className="signal-list"><div className="signal-header">SIGNALS</div>{visibleSignals.map((signal, index) => <div className="signal-row" key={signal.id} title={`${signal.scope}.${signal.name}`}><span style={{ background: waveformColors[index % waveformColors.length] }}/><code>{signal.name}</code><small>{latestValue(signal)}</small></div>)}</div><div className="wave-canvas"><div className="time-ruler">{ruler.map((time) => <span key={time}>{time}</span>)}</div>{visibleSignals.map((signal, index) => { const color = waveformColors[index % waveformColors.length]; return <div className="wave-row" key={signal.id}>{signal.width > 1 ? <svg viewBox="0 0 480 38" preserveAspectRatio="none"><path d={busPath(signal, waveform.endTime)} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg> : <svg viewBox="0 0 480 38" preserveAspectRatio="none"><polyline points={scalarPoints(signal, waveform.endTime)} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke"/></svg>}<span className="wave-value" style={{ color }}>{signal.scope}</span></div>; })}</div></div>
+    </>}
+  </section>;
 }
 
 export function HardwareView(): React.JSX.Element {
+  const root = useWorkbench((state) => state.root);
+  const project = useWorkbench((state) => state.projectPath);
+  const appendOutput = useWorkbench((state) => state.appendOutput);
+  const setBottomPanel = useWorkbench((state) => state.setBottomPanel);
   const [devices, setDevices] = useState<SerialDevice[]>([]);
   const [scanning, setScanning] = useState(false);
-  const scan = async () => { setScanning(true); try { setDevices(await bridge.serialDevices()); } finally { setScanning(false); } };
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [jtag, setJtag] = useState<"unchecked" | "checking" | "ready" | "blocked">("unchecked");
+  const scan = async () => { setScanning(true); setScanError(null); try { setDevices(await bridge.serialDevices()); } catch (reason) { setScanError(reason instanceof Error ? reason.message : String(reason)); } finally { setScanning(false); } };
   useEffect(() => { void scan(); }, []);
-  return <section className="feature-view"><div className="feature-header"><div><p className="eyebrow">Connected systems</p><h1>Hardware manager</h1><p>Inspect programmers, target boards, and serial interfaces before programming.</p></div><button className="primary-button" onClick={() => void scan()}><RefreshCw className={scanning ? "spin" : ""} size={15}/> Scan devices</button></div><div className="hardware-grid"><article className="device-card featured"><div className="device-visual"><CircuitBoard size={42}/><span className="pulse-ring"/></div><div><span className="status-good"><span className="online-dot"/> READY</span><h2>Tang Primer 20K</h2><p>GW2A-LV18PG256C8/I7 · 20,736 LUT4</p><div className="device-facts"><span><Clock3 size={14}/> 27 MHz</span><span><Zap size={14}/> 3.3 V I/O</span><span><ShieldCheck size={14}/> JTAG verified</span></div></div><button className="secondary-button">Diagnostics <ArrowRight size={14}/></button></article><article className="panel-card"><div className="card-title"><div><h2>Interfaces</h2><p>Detected local serial endpoints</p></div><Cable size={19}/></div>{devices.length ? devices.map((device) => <div className="interface-row" key={device.portName}><div className="port-icon"><TerminalSquare size={17}/></div><div><strong>{device.portName}</strong><span>{device.displayName}</span></div>{device.likelyBoard && <span className="tag">Likely board</span>}</div>) : <div className="empty-small">No serial devices detected.</div>}</article></div><article className="safety-card"><ShieldCheck size={22}/><div><h3>Safe programming workflow</h3><p>SRAM upload is volatile. Flash persists after power-off and asks for confirmation before the write starts. FPGA Studio never replaces the UART interface driver.</p></div></article></section>;
+  const detect = async () => {
+    const jobId = `jtag-detect-${Date.now()}`;
+    setJtag("checking");
+    setBottomPanel("output");
+    try {
+      const result = await bridge.run(root, project, "detect", jobId);
+      setJtag(result.success ? "ready" : "blocked");
+      appendOutput({ jobId, phase: "detect", stream: result.success ? "system" : "stderr", message: result.success ? "JTAG chain detected successfully." : "JTAG detection failed. On Tang Primer 20K, verify that only Interface 0 uses WinUSB.", timestamp: new Date().toISOString() });
+    } catch (reason) {
+      setJtag("blocked");
+      appendOutput({ jobId, phase: "detect", stream: "stderr", message: reason instanceof Error ? reason.message : String(reason), timestamp: new Date().toISOString() });
+    }
+  };
+  const usbPresent = devices.some((device) => device.likelyBoard);
+  const jtagLabel = jtag === "ready" ? "JTAG verified" : jtag === "checking" ? "Checking JTAG…" : jtag === "blocked" ? "JTAG needs attention" : "JTAG not checked";
+  return <section className="feature-view"><div className="feature-header"><div><p className="eyebrow">Connected systems</p><h1>Hardware manager</h1><p>Inspect programmers, target boards, and serial interfaces before programming.</p></div><button className="primary-button" onClick={() => void scan()} disabled={scanning}><RefreshCw className={scanning ? "spin" : ""} size={15}/> Scan devices</button></div><div className="hardware-grid"><article className="device-card featured"><div className="device-visual"><CircuitBoard size={42}/>{usbPresent && <span className="pulse-ring"/>}</div><div><span className={usbPresent ? "status-good" : "tag"}>{usbPresent ? "USB INTERFACE FOUND" : "BOARD PROFILE LOADED"}</span><h2>Tang Primer 20K</h2><p>GW2A-LV18PG256C8/I7 · 20,736 LUT4</p><div className="device-facts"><span><Clock3 size={14}/> 27 MHz</span><span><Zap size={14}/> 3.3 V I/O</span><span className={jtag === "blocked" ? "fact-error" : jtag === "ready" ? "fact-good" : ""}><ShieldCheck size={14}/> {jtagLabel}</span></div></div><button className="secondary-button" onClick={() => void detect()} disabled={jtag === "checking"}>{jtag === "checking" ? <RefreshCw className="spin" size={14}/> : <ArrowRight size={14}/>} Detect JTAG</button></article><article className="panel-card"><div className="card-title"><div><h2>Serial interfaces</h2><p>Detected local COM endpoints</p></div><Cable size={19}/></div>{scanError ? <div className="empty-small">{scanError}</div> : devices.length ? devices.map((device) => <div className="interface-row" key={device.portName}><div className="port-icon"><TerminalSquare size={17}/></div><div><strong>{device.portName}</strong><span>{device.displayName}</span></div>{device.likelyBoard && <span className="tag">Likely board UART</span>}</div>) : <div className="empty-small">No serial devices detected.</div>}</article></div>{jtag === "blocked" && <article className="driver-guidance"><ShieldCheck size={20}/><div><h3>JTAG driver requires attention</h3><p>In Zadig choose <strong>JTAG Debugger (Interface 0)</strong> and install WinUSB. Leave Interface 1 unchanged—on this board it provides the UART COM port.</p></div></article>}<article className="safety-card"><ShieldCheck size={22}/><div><h3>Safe programming workflow</h3><p>SRAM upload is volatile. Flash persists after power-off and asks for confirmation before the write starts. FPGA Studio never replaces drivers automatically.</p></div></article></section>;
 }
 
+interface UartLine { time: string; direction: "rx" | "tx" | "status" | "error"; text: string }
+interface UartSession { id: string; port: string; baud: number; connected: boolean; connecting: boolean; lines: UartLine[] }
+
 export function UartView(): React.JSX.Element {
-  return <section className="feature-view uart-view"><div className="feature-header compact"><div><p className="eyebrow">Serial laboratory</p><h1>UART terminal</h1></div><button className="primary-button"><Plus size={15}/> New connection</button></div><div className="uart-toolbar"><label>Port <select defaultValue="COM5"><option>COM5</option><option>Auto-detect</option></select></label><label>Baud <select defaultValue="115200"><option>9600</option><option>57600</option><option>115200</option><option>921600</option></select></label><span>8 data · none · 1 stop</span><button className="connect-button"><span className="online-dot"/> Connected</button></div><div className="terminal-screen"><div className="terminal-line muted">[14:22:09.102] Connected to COM5 at 115200 baud</div><div className="terminal-line rx"><span>RX</span> Tang Primer 20K UART demo</div><div className="terminal-line rx"><span>RX</span> Counter: 00000142  LED: ON</div><div className="terminal-line tx"><span>TX</span> status</div><div className="terminal-line rx"><span>RX</span> FMAX 72.4 MHz | temperature N/A</div><div className="terminal-cursor">▌</div></div><div className="terminal-input"><span>&gt;</span><input aria-label="UART message" placeholder="Type a message, Enter to send"/><button>Send</button></div></section>;
+  const [devices, setDevices] = useState<SerialDevice[]>([]);
+  const [sessions, setSessions] = useState<UartSession[]>([]);
+  const sessionsRef = useRef<UartSession[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
+  const addSession = (ports = devices) => {
+    const id = `uart-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const port = ports.find((device) => device.likelyBoard)?.portName ?? ports[0]?.portName ?? "";
+    setSessions((current) => [...current, { id, port, baud: 115200, connected: false, connecting: false, lines: [] }]);
+    setActiveId(id);
+  };
+  useEffect(() => {
+    let disposed = false;
+    void bridge.serialDevices().then((ports) => { if (!disposed) { setDevices(ports); setSessions((current) => { if (current.length) return current; const id = `uart-${Date.now()}`; setActiveId(id); return [{ id, port: ports.find((device) => device.likelyBoard)?.portName ?? ports[0]?.portName ?? "", baud: 115200, connected: false, connecting: false, lines: [] }]; }); } });
+    let unlisten: (() => void) | undefined;
+    void bridge.onSerialEvent((event) => {
+      const text = event.kind === "data" ? new TextDecoder().decode(Uint8Array.from(event.data)) : event.message ?? "Serial event";
+      setSessions((current) => current.map((session) => session.id === event.sessionId ? { ...session, connected: event.kind === "error" ? false : session.connected, lines: [...session.lines.slice(-999), { time: new Date(event.timestamp).toLocaleTimeString(), direction: event.kind === "data" ? "rx" : event.kind, text }] } : session));
+    }).then((stop) => { unlisten = stop; });
+    return () => { disposed = true; unlisten?.(); for (const session of sessionsRef.current.filter((item) => item.connected)) void bridge.disconnectSerial(session.id); };
+  }, []);
+  const active = sessions.find((session) => session.id === activeId) ?? null;
+  const updateActive = (values: Partial<UartSession>) => setSessions((current) => current.map((session) => session.id === activeId ? { ...session, ...values } : session));
+  const toggleConnection = async () => {
+    if (!active) return;
+    if (active.connected) { await bridge.disconnectSerial(active.id); updateActive({ connected: false, connecting: false, lines: [...active.lines, { time: new Date().toLocaleTimeString(), direction: "status", text: "Disconnected" }] }); return; }
+    if (!active.port) { updateActive({ lines: [...active.lines, { time: new Date().toLocaleTimeString(), direction: "error", text: "Select an available serial port first." }] }); return; }
+    updateActive({ connecting: true });
+    try { await bridge.connectSerial(active.port, active.baud, active.id); updateActive({ connected: true, connecting: false }); }
+    catch (reason) { updateActive({ connected: false, connecting: false, lines: [...active.lines, { time: new Date().toLocaleTimeString(), direction: "error", text: reason instanceof Error ? reason.message : String(reason) }] }); }
+  };
+  const send = async () => {
+    if (!active?.connected || !message) return;
+    const text = `${message}\r\n`;
+    try { await bridge.writeSerial(active.id, Array.from(new TextEncoder().encode(text))); updateActive({ lines: [...active.lines, { time: new Date().toLocaleTimeString(), direction: "tx", text: message }] }); setMessage(""); }
+    catch (reason) { updateActive({ lines: [...active.lines, { time: new Date().toLocaleTimeString(), direction: "error", text: reason instanceof Error ? reason.message : String(reason) }] }); }
+  };
+  return <section className="feature-view uart-view"><div className="feature-header compact"><div><p className="eyebrow">Serial laboratory</p><h1>UART terminal</h1></div><button className="primary-button" onClick={() => addSession()}><Plus size={15}/> New connection</button></div><div className="uart-tabs">{sessions.map((session, index) => <button key={session.id} className={session.id === activeId ? "active" : ""} onClick={() => setActiveId(session.id)}><span className={session.connected ? "online-dot" : "offline-dot"}/> Terminal {index + 1}<small>{session.port || "No port"}</small></button>)}</div>{active ? <><div className="uart-toolbar"><label>Port <select value={active.port} disabled={active.connected || active.connecting} onChange={(event) => updateActive({ port: event.target.value })}><option value="">Select port</option>{devices.map((device) => <option key={device.portName} value={device.portName}>{device.portName} — {device.displayName}</option>)}</select></label><label>Baud <select value={active.baud} disabled={active.connected || active.connecting} onChange={(event) => updateActive({ baud: Number(event.target.value) })}><option>9600</option><option>57600</option><option>115200</option><option>921600</option></select></label><span>8 data · none · 1 stop</span><button className={`connect-button ${active.connected ? "connected" : ""}`} onClick={() => void toggleConnection()} disabled={active.connecting}><span className={active.connected ? "online-dot" : "offline-dot"}/> {active.connecting ? "Connecting…" : active.connected ? "Disconnect" : "Connect"}</button></div><div className="terminal-screen">{active.lines.length ? active.lines.map((line, index) => <div className={`terminal-line ${line.direction === "status" ? "muted" : line.direction}`} key={`${line.time}-${index}`}>{line.direction !== "status" && <span>{line.direction.toUpperCase()}</span>}[{line.time}] {line.text}</div>) : <div className="terminal-placeholder">Disconnected. Select the board UART port, normally Interface 1, then press Connect.</div>}<div className="terminal-cursor">▌</div></div><div className="terminal-input"><span>&gt;</span><input aria-label="UART message" value={message} disabled={!active.connected} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void send(); }} placeholder={active.connected ? "Type a message, Enter to send" : "Connect a serial port to send data"}/><button onClick={() => void send()} disabled={!active.connected || !message}>Send</button></div></> : <div className="view-state"><TerminalSquare size={22}/><strong>No UART terminal open</strong><button className="primary-button" onClick={() => addSession()}><Plus size={14}/> New connection</button></div>}</section>;
 }
 
 export function WelcomeView(): React.JSX.Element {
-  const { setView } = useWorkbench();
-  return <section className="welcome-view"><div className="welcome-hero"><div className="welcome-logo"><CircuitBoard size={32}/></div><p className="eyebrow">FPGA Studio 2.0</p><h1>Build hardware with clarity.</h1><p>A focused, local-first workspace that teaches the flow while giving experienced designers the controls they expect.</p><div className="welcome-actions"><button className="primary-button"><Plus size={16}/> New FPGA project</button><button className="secondary-button" onClick={() => setView("dashboard")}><Activity size={16}/> Open insights</button></div></div><div className="welcome-columns"><article><h2>Start</h2>{["Create from a verified template", "Open an existing project", "Clone a Git repository"].map((item) => <button className="start-link" key={item}><ChevronRight size={14}/>{item}</button>)}</article><article><h2>Learn</h2>{[{i:Lightbulb,t:"Your first LED design",s:"10 min"},{i:Waves,t:"Read a simulation waveform",s:"12 min"},{i:Network,t:"Understand the synthesized netlist",s:"15 min"}].map(({i:Icon,t,s}) => <button className="lesson-card" key={t}><Icon size={18}/><span><strong>{t}</strong><small>{s}</small></span><ArrowRight size={14}/></button>)}</article><article><h2>What’s new</h2><div className="release-card"><span className="release-version">2.0 PREVIEW</span><h3>A professional workspace, rebuilt</h3><ul><li>Native Tauri security boundary</li><li>Integrated design intelligence</li><li>Accessible light and dark themes</li><li>Hardware-first diagnostics</li></ul><button className="text-button"><BookOpen size={14}/> Read release notes</button></div></article></div><div className="welcome-tip"><Sparkles size={16}/><span><strong>Intelligent tip:</strong> run simulation before synthesis to catch functional mistakes in seconds.</span></div></section>;
+  const { setView, openProjectWizard } = useWorkbench();
+  return <section className="welcome-view"><div className="welcome-hero"><div className="welcome-logo"><CircuitBoard size={32}/></div><p className="eyebrow">FPGA Studio 2.0</p><h1>Build hardware with clarity.</h1><p>A focused, local-first workspace that teaches the flow while giving experienced designers the controls they expect.</p><div className="welcome-actions"><button className="primary-button" onClick={openProjectWizard}><Plus size={16}/> New FPGA project</button><button className="secondary-button" onClick={() => setView("dashboard")}><Activity size={16}/> Open insights</button></div></div><div className="welcome-columns"><article><h2>Start</h2>{["Create from a verified template", "Open an existing project", "Clone a Git repository"].map((item) => <button className="start-link" key={item} onClick={item.startsWith("Create") ? openProjectWizard : undefined}><ChevronRight size={14}/>{item}</button>)}</article><article><h2>Learn</h2>{[{i:Lightbulb,t:"Your first LED design",s:"10 min"},{i:Waves,t:"Read a simulation waveform",s:"12 min"},{i:Network,t:"Understand the synthesized netlist",s:"15 min"}].map(({i:Icon,t,s}) => <button className="lesson-card" key={t}><Icon size={18}/><span><strong>{t}</strong><small>{s}</small></span><ArrowRight size={14}/></button>)}</article><article><h2>What’s new</h2><div className="release-card"><span className="release-version">2.0 PREVIEW</span><h3>A professional workspace, rebuilt</h3><ul><li>Native Tauri security boundary</li><li>Integrated design intelligence</li><li>Accessible light and dark themes</li><li>Hardware-first diagnostics</li></ul><button className="text-button"><BookOpen size={14}/> Read release notes</button></div></article></div><div className="welcome-tip"><Sparkles size={16}/><span><strong>Intelligent tip:</strong> run simulation before synthesis to catch functional mistakes in seconds.</span></div></section>;
 }
