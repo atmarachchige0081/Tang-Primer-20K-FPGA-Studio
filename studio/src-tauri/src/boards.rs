@@ -94,11 +94,10 @@ fn validate(workspace: &Path, profile_path: &Path, profile: &BoardProfile) -> Re
         .ok_or("Board package has no directory")?;
     for relative in &profile.constraints {
         let constraint = safe_existing_path(package, relative);
-        if constraint
+        if !constraint
             .as_ref()
             .map(|path| path.starts_with(workspace) && path.is_file())
             .unwrap_or(false)
-            == false
         {
             return Err(format!(
                 "Board '{}' is missing constraint file {relative}",
