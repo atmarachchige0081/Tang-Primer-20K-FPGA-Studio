@@ -38,4 +38,11 @@ describe("workbench document state", () => {
     expect(useWorkbench.getState().output).toHaveLength(2_000);
     expect(useWorkbench.getState().output[0]?.message).toBe("50");
   });
+
+  it("deduplicates consecutive backend events", () => {
+    const event = { jobId: "build-1", phase: "build", stream: "stdout" as const, message: "Starting FPGA toolchain job", timestamp: new Date(0).toISOString() };
+    useWorkbench.getState().appendOutput(event);
+    useWorkbench.getState().appendOutput({ ...event, timestamp: new Date(1).toISOString() });
+    expect(useWorkbench.getState().output).toEqual([event]);
+  });
 });
