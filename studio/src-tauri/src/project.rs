@@ -109,6 +109,7 @@ pub fn create_project(
     name: &str,
     template_id: &str,
     display_name: &str,
+    board_id: &str,
 ) -> Result<WorkspaceSnapshot, String> {
     let root = canonical_workspace(root)?;
     let project_name = name.trim();
@@ -122,6 +123,19 @@ pub fn create_project(
         .into_iter()
         .find(|item| item.id == template_id)
         .ok_or_else(|| format!("Unknown project template '{template_id}'"))?;
+    let selected_board = if board_id.trim().is_empty() {
+        "tang_primer_20k"
+    } else {
+        board_id.trim()
+    };
+    let supported_boards = if template.supported_boards.is_empty() {
+        vec!["tang_primer_20k".to_owned()]
+    } else {
+        template.supported_boards.clone()
+    };
+    if !supported_boards.iter().any(|id| id == selected_board) {
+        return Err(format!("The '{}' template is not hardware-ready for board '{}'. Choose a compatible template or the Primer 20K Dock.", template.name, selected_board));
+    }
     let projects_root = root.join("projects");
     fs::create_dir_all(&projects_root)
         .map_err(|error| format!("Cannot create projects directory: {error}"))?;
@@ -138,6 +152,9 @@ pub fn create_project(
             let overlay = validate_template_source(&root, overlay)?;
             copy_template_tree(&overlay, &target)?;
         }
+        if selected_board != "tang_primer_20k" {
+            configure_board(&root, &target, selected_board)?;
+        }
         let title = if display_name.trim().is_empty() {
             template.name.as_str()
         } else {
@@ -147,7 +164,7 @@ pub fn create_project(
             "schemaVersion": 1,
             "name": title,
             "folder": project_name,
-            "board": "tang_primer_20k",
+            "board": selected_board,
             "top": "top",
             "template": template.id,
             "createdAt": Utc::now().to_rfc3339(),
@@ -189,6 +206,74 @@ pub fn create_project(
     state.active_project = project_path.clone();
     persist_workspace_state(&root, &state)?;
     snapshot_for(&root, &project_path, state.recent_projects)
+}
+
+fn configure_board(root: &Path, target: &Path, board_id: &str) -> Result<(), String> {
+    let profile = crate::boards::list(&root.to_string_lossy())?
+        .into_iter()
+        .find(|item| item.id == board_id)
+        .ok_or_else(|| format!("Unknown board package '{board_id}'"))?;
+    let relative_constraint = profile
+        .constraints
+        .first()
+        .ok_or("Board package has no constraints")?;
+    let source = root
+        .join("boards/gowin")
+        .join(&profile.id)
+        .join(relative_constraint);
+    if !source.is_file() || !source.starts_with(root) {
+        return Err(format!(
+            "Board '{}' constraint package is incomplete",
+            profile.name
+        ));
+    }
+    let file_name = source
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or("Board constraint filename is invalid")?;
+    let destination_directory = target.join("constraints");
+    fs::create_dir_all(&destination_directory)
+        .map_err(|error| format!("Cannot create project constraints: {error}"))?;
+    fs::copy(&source, destination_directory.join(file_name))
+        .map_err(|error| format!("Cannot copy board constraints: {error}"))?;
+
+    let config_path = target.join("fpga.config.psd1");
+    let mut config = fs::read_to_string(&config_path)
+        .map_err(|error| format!("Cannot read generated board configuration: {error}"))?;
+    let yosys_family = profile
+        .yosys_family
+        .as_deref()
+        .ok_or_else(|| format!("Board '{}' has no Yosys family", profile.name))?;
+    for (key, value) in [
+        ("Device", profile.device.as_str()),
+        ("Family", profile.family.as_str()),
+        ("YosysFamily", yosys_family),
+        ("Constraint", &format!("constraints/{file_name}")),
+        ("ProgrammerBoard", profile.programmer.board.as_str()),
+    ] {
+        let pattern =
+            Regex::new(&format!(r"(?m)^(\s*{}\s*=\s*)'[^']*'", regex::escape(key))).unwrap();
+        if !pattern.is_match(&config) {
+            return Err(format!("Generated configuration has no {key} setting"));
+        }
+        config = pattern
+            .replace(&config, format!("${{1}}'{value}'"))
+            .into_owned();
+    }
+    let frequency_mhz = profile
+        .clocks
+        .first()
+        .map(|clock| clock.frequency_hz / 1_000_000)
+        .ok_or("Board has no clock")?;
+    let clock_pattern = Regex::new(r"(?m)^(\s*ClockMHz\s*=\s*)\d+(?:\.\d+)?").unwrap();
+    if !clock_pattern.is_match(&config) {
+        return Err("Generated configuration has no ClockMHz setting".into());
+    }
+    config = clock_pattern
+        .replace(&config, format!("${{1}}{frequency_mhz}"))
+        .into_owned();
+    fs::write(config_path, config)
+        .map_err(|error| format!("Cannot write generated board configuration: {error}"))
 }
 
 fn project_display_name(directory: &Path) -> String {
@@ -398,7 +483,7 @@ pub fn write_text(root: &str, relative: &str, content: &str) -> Result<(), Strin
 
 #[cfg(test)]
 mod tests {
-    use super::create_project;
+    use super::{configure_board, create_project};
     use std::fs;
 
     #[test]
@@ -428,8 +513,14 @@ mod tests {
         )
         .expect("catalog");
 
-        let result = create_project(&root.to_string_lossy(), "04_demo", "demo", "Demo project")
-            .expect("project creation should pass");
+        let result = create_project(
+            &root.to_string_lossy(),
+            "04_demo",
+            "demo",
+            "Demo project",
+            "tang_primer_20k",
+        )
+        .expect("project creation should pass");
         assert_eq!(result.project_path, "projects/04_demo");
         assert!(root.join("projects/04_demo/fpga.project.json").is_file());
         assert!(root.join(".fpga-studio/workspace-state.json").is_file());
@@ -439,9 +530,42 @@ mod tests {
             "module top; endmodule\n"
         );
         assert!(!root.join("projects/04_demo/build").exists());
-        assert!(create_project(&root.to_string_lossy(), "../escape", "demo", "").is_err());
-        assert!(create_project(&root.to_string_lossy(), "04_demo", "demo", "").is_err());
+        assert!(create_project(
+            &root.to_string_lossy(),
+            "../escape",
+            "demo",
+            "",
+            "tang_primer_20k"
+        )
+        .is_err());
+        assert!(create_project(
+            &root.to_string_lossy(),
+            "04_demo",
+            "demo",
+            "",
+            "tang_primer_20k"
+        )
+        .is_err());
 
         fs::remove_dir_all(&root).expect("temporary workspace cleanup");
+    }
+
+    #[test]
+    fn applies_a_non_default_board_package_to_generated_configuration() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .unwrap();
+        let target =
+            std::env::temp_dir().join(format!("fpga-board-config-test-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&target).unwrap();
+        fs::write(target.join("fpga.config.psd1"), "@{\n Device='old'\n Family='old'\n YosysFamily='old'\n Constraint='old.cst'\n ClockMHz=1\n ProgrammerBoard='old'\n}\n").unwrap();
+        configure_board(&root, &target, "tang_nano_9k").expect("Nano 9K configuration");
+        let config = fs::read_to_string(target.join("fpga.config.psd1")).unwrap();
+        assert!(config.contains("GW1NR-LV9QN88PC6/I5"));
+        assert!(config.contains("'tangnano9k'"));
+        assert!(config.contains("constraints/tang_nano_9k.cst"));
+        assert!(target.join("constraints/tang_nano_9k.cst").is_file());
+        fs::remove_dir_all(target).unwrap();
     }
 }

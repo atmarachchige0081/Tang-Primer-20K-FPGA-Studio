@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BarChart3, Boxes, CircuitBoard, FolderPlus, Network, ShieldCheck, Waves, X } from "lucide-react";
 import { markReleaseNotesSeen, releaseNotesPending, RELEASE_NOTES_VERSION } from "../lib/release-notes";
 
@@ -13,6 +13,11 @@ const highlights = [
 
 export function ReleaseNotes(): React.JSX.Element | null {
   const [open, setOpen] = useState(releaseNotesPending);
+  useEffect(() => {
+    const reveal = () => setOpen(true);
+    window.addEventListener("fpga-studio:release-notes", reveal);
+    return () => window.removeEventListener("fpga-studio:release-notes", reveal);
+  }, []);
   if (!open) return null;
   const close = () => { markReleaseNotesSeen(); setOpen(false); };
   return <div className="release-overlay" role="presentation"><section className="release-dialog" role="dialog" aria-modal="true" aria-labelledby="release-title"><div className="release-top"><div className="release-symbol"><CircuitBoard size={27}/></div><div><span>FPGA STUDIO {RELEASE_NOTES_VERSION}</span><h2 id="release-title">Your hardware workspace grew up.</h2><p>A local-first major release designed to teach clearly and stay useful as your projects become serious.</p></div><button className="release-close" onClick={close} aria-label="Close release notes"><X size={18}/></button></div><div className="release-highlights">{highlights.map(({ icon: Icon, title, text }) => <article key={title}><Icon size={18}/><div><h3>{title}</h3><p>{text}</p></div></article>)}</div><div className="release-safety"><ShieldCheck size={18}/><span><strong>Privacy and safety:</strong> builds, source code, waveforms, and analytics remain on this computer. Persistent flash always requires an explicit action.</span></div><div className="release-actions"><span>Release notes appear once per version and remain available from Help.</span><button className="primary-button" onClick={close}>Explore FPGA Studio</button></div></section></div>;

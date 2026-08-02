@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { ActivityBar } from "./components/ActivityBar";
 import { BottomDock } from "./components/BottomDock";
 import { CommandBar } from "./components/CommandBar";
@@ -9,6 +9,7 @@ import { StatusBar } from "./components/StatusBar";
 import { TitleBar } from "./components/TitleBar";
 import { ProjectWizard } from "./components/ProjectWizard";
 import { ReleaseNotes } from "./components/ReleaseNotes";
+import { QuickLauncher } from "./components/QuickLauncher";
 import { DashboardView, HardwareView, NetlistView, UartView, WaveformView, WelcomeView } from "./components/WorkbenchViews";
 import { bridge } from "./lib/bridge";
 import { useWorkbench } from "./store/workbench";
@@ -25,6 +26,7 @@ const viewComponents: Record<Exclude<WorkbenchView, "editor">, React.ComponentTy
 
 function Workbench(): React.JSX.Element {
   const store = useWorkbench();
+  const runLock = useRef(false);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: light)");
@@ -57,8 +59,12 @@ function Workbench(): React.JSX.Element {
       const snapshot = await bridge.workspaceSnapshot();
       if (disposed) return;
       store.setWorkspace(snapshot.root, snapshot.project, snapshot.projectPath, snapshot.tree);
-      const summary = await bridge.buildSummary(snapshot.root, snapshot.projectPath);
-      if (!disposed) store.setBuild(summary);
+      const [summary, board] = await Promise.all([
+        bridge.buildSummary(snapshot.root, snapshot.projectPath),
+        bridge.activeBoard(snapshot.root, snapshot.projectPath),
+      ]);
+      if (!disposed) { store.setBuild(summary); store.setBoard(board); }
+      void bridge.gitStatus(snapshot.root).then((status) => { if (!disposed) store.setGit(status); }).catch(() => undefined);
     })().catch((error: unknown) => {
       store.appendOutput({ jobId: "startup", phase: "workspace", stream: "stderr", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() });
     });
@@ -73,7 +79,8 @@ function Workbench(): React.JSX.Element {
   }, []);
 
   const run = useCallback(async (action: BuildAction) => {
-    if (store.runningJob) return;
+    if (store.runningJob || runLock.current) return;
+    runLock.current = true;
     const optimisticId = `starting-${Date.now()}`;
     store.setRunningJob(optimisticId);
     store.setBottomPanel("output");
@@ -87,6 +94,7 @@ function Workbench(): React.JSX.Element {
       store.appendOutput({ jobId: optimisticId, phase: action, stream: "stderr", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() });
     } finally {
       store.setRunningJob(null);
+      runLock.current = false;
     }
   }, [store]);
 
@@ -104,7 +112,7 @@ function Workbench(): React.JSX.Element {
 
   const View = store.view === "editor" ? EditorWorkspace : viewComponents[store.view];
   return <><div className="app-shell">
-    <TitleBar />
+    <TitleBar onRun={(action) => void run(action)} onSave={() => void save()} />
     <div className="workbench-shell">
       <ActivityBar />
       {store.sidebarOpen && <Sidebar />}
@@ -114,7 +122,7 @@ function Workbench(): React.JSX.Element {
       </main>
     </div>
     <StatusBar />
-  </div><ProjectWizard /><ReleaseNotes /></>;
+  </div><ProjectWizard /><ReleaseNotes /><QuickLauncher onRun={(action) => void run(action)} onSave={() => void save()} /></>;
 }
 
 export function App(): React.JSX.Element {

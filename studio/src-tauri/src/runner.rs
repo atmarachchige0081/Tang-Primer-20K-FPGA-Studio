@@ -11,32 +11,50 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
+const MAX_CAPTURED_LINES: usize = 20_000;
+const PROGRAMMER_TIMEOUT: Duration = Duration::from_secs(90);
+
+#[derive(Default)]
+struct JobState {
+    jobs: HashMap<String, Arc<AtomicBool>>,
+    projects: HashMap<String, String>,
+}
+
 #[derive(Default, Clone)]
 pub struct JobRegistry {
-    jobs: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
+    state: Arc<Mutex<JobState>>,
 }
 
 impl JobRegistry {
-    fn insert(&self, id: String, flag: Arc<AtomicBool>) -> Result<(), String> {
-        self.jobs
+    fn insert(&self, id: String, project: String, flag: Arc<AtomicBool>) -> Result<(), String> {
+        let mut state = self
+            .state
             .lock()
-            .map_err(|_| "Job registry is unavailable")?
-            .insert(id, flag);
+            .map_err(|_| "Job registry is unavailable")?;
+        if let Some(existing) = state.projects.get(&project) {
+            return Err(format!("Another FPGA job ({existing}) is already running for this project. Wait for it to finish or press Stop."));
+        }
+        if state.jobs.contains_key(&id) {
+            return Err("A job with this identifier is already running".into());
+        }
+        state.projects.insert(project, id.clone());
+        state.jobs.insert(id, flag);
         Ok(())
     }
 
     fn remove(&self, id: &str) {
-        if let Ok(mut jobs) = self.jobs.lock() {
-            jobs.remove(id);
+        if let Ok(mut state) = self.state.lock() {
+            state.jobs.remove(id);
+            state.projects.retain(|_, job_id| job_id != id);
         }
     }
 
     pub fn cancel(&self, id: &str) -> Result<bool, String> {
-        let jobs = self
-            .jobs
+        let state = self
+            .state
             .lock()
             .map_err(|_| "Job registry is unavailable")?;
-        if let Some(flag) = jobs.get(id) {
+        if let Some(flag) = state.jobs.get(id) {
             flag.store(true, Ordering::SeqCst);
             Ok(true)
         } else {
@@ -84,7 +102,8 @@ fn run_blocking(
         return Err("The active project has no fpga.config.psd1".into());
     }
     let cancellation = Arc::new(AtomicBool::new(false));
-    registry.insert(job_id.clone(), cancellation.clone())?;
+    let project_key = project_dir.to_string_lossy().to_ascii_lowercase();
+    registry.insert(job_id.clone(), project_key, cancellation.clone())?;
     let started = Instant::now();
     emit(
         &app,
@@ -147,11 +166,20 @@ fn run_blocking(
     drop(sender);
 
     let mut captured = Vec::new();
+    let mut programmer_started = None;
+    let mut termination_requested = false;
     let exit_status = loop {
         match receiver.recv_timeout(Duration::from_millis(35)) {
             Ok((stream, line)) => {
+                if line
+                    .trim_start()
+                    .to_ascii_lowercase()
+                    .starts_with("> openfpgaloader")
+                {
+                    programmer_started = Some(Instant::now());
+                }
                 emit(&app, &job_id, action.as_str(), stream, &line);
-                captured.push(line);
+                push_captured(&mut captured, line);
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => {
                 break child
@@ -160,7 +188,8 @@ fn run_blocking(
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {}
         }
-        if cancellation.load(Ordering::SeqCst) {
+        if cancellation.load(Ordering::SeqCst) && !termination_requested {
+            termination_requested = true;
             terminate_process_tree(process_id, &mut child);
             emit(
                 &app,
@@ -170,13 +199,22 @@ fn run_blocking(
                 "Cancellation requested",
             );
         }
+        if !termination_requested
+            && programmer_started.is_some_and(|started| started.elapsed() >= PROGRAMMER_TIMEOUT)
+        {
+            termination_requested = true;
+            let message = "FPGA programmer timed out after 90 seconds; its process was stopped safely.";
+            emit(&app, &job_id, action.as_str(), "system", message);
+            push_captured(&mut captured, message.into());
+            terminate_process_tree(process_id, &mut child);
+        }
         if let Some(status) = child
             .try_wait()
             .map_err(|error| format!("Cannot inspect FPGA job: {error}"))?
         {
             while let Ok((stream, line)) = receiver.try_recv() {
                 emit(&app, &job_id, action.as_str(), stream, &line);
-                captured.push(line);
+                push_captured(&mut captured, line);
             }
             break status;
         }
@@ -210,6 +248,13 @@ fn run_blocking(
         diagnostics,
         failure_message,
     })
+}
+
+fn push_captured(captured: &mut Vec<String>, line: String) {
+    if captured.len() >= MAX_CAPTURED_LINES {
+        captured.drain(..5_000);
+    }
+    captured.push(line);
 }
 
 fn emit(app: &AppHandle, job_id: &str, phase: &str, stream: &str, message: &str) {
@@ -293,6 +338,12 @@ fn friendly_failure(action: BuildAction, lines: &[String]) -> String {
     if combined.contains("usb_open() failed") || combined.contains("unable to open ftdi device") {
         return "The FPGA programmer is connected but Windows cannot open JTAG Interface 0. Install WinUSB on Interface 0 only, leave Interface 1 unchanged, then run Detect JTAG again.".into();
     }
+    if combined.contains("usb bulk write failed")
+        || combined.contains("low level ftdi init failed")
+        || combined.contains("fpga programmer timed out")
+    {
+        return "The JTAG USB interface stopped responding. Unplug the board USB cable, wait 3 seconds, reconnect it, then run Detect JTAG before retrying SRAM. Do not change the Zadig drivers.".into();
+    }
     if combined.contains("oss cad suite is not installed") || combined.contains("environment.ps1") {
         return "The FPGA toolchain is not ready. Run the setup command, then Hardware Doctor, before trying again.".into();
     }
@@ -300,6 +351,12 @@ fn friendly_failure(action: BuildAction, lines: &[String]) -> String {
         || combined.contains("psargumentnullexception")
     {
         return "FPGA Studio could not pass the workspace path to Windows PowerShell. Restart the updated application and retry; your source files were not changed.".into();
+    }
+    if combined.contains("checksum data is truncated")
+        || combined.contains("can't parse file")
+        || combined.contains("cannot safely parse their checksum")
+    {
+        return "The programmer rejected the generated bitstream before writing the FPGA. Rebuild with the updated uncompressed Gowin packer setting, then retry SRAM upload. The failed attempt did not damage the board.".into();
     }
     if combined.contains("timing") && (combined.contains("failed") || combined.contains("error")) {
         return "Implementation did not meet the requested timing or placement constraints. Open Problems for the first actionable tool message.".into();
@@ -326,7 +383,7 @@ fn friendly_failure(action: BuildAction, lines: &[String]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{friendly_failure, parse_diagnostics};
+    use super::{friendly_failure, parse_diagnostics, JobRegistry};
     use crate::models::BuildAction;
     use crate::models::DiagnosticSeverity;
 
@@ -351,5 +408,78 @@ mod tests {
             &["unable to open ftdi device: -4 (usb_open() failed)".into()]
         )
         .contains("Interface 0"));
+    }
+
+    #[test]
+    fn explains_incompatible_compressed_gowin_bitstreams() {
+        let message = friendly_failure(
+            BuildAction::Upload,
+            &[
+                "Reports: build/yosys.log and build/timing.json".into(),
+                "FsParser: checksum data is truncated".into(),
+                "Error: Failed to claim FPGA device: can't parse file".into(),
+            ],
+        );
+        assert!(message.contains("uncompressed Gowin"));
+        assert!(!message.contains("timing"));
+    }
+
+    #[test]
+    fn explains_stalled_or_reset_jtag_interfaces() {
+        let bulk = friendly_failure(
+            BuildAction::Upload,
+            &["mpsse_write: fail to write with error -1 (usb bulk write failed)".into()],
+        );
+        assert!(bulk.contains("Unplug"));
+        assert!(bulk.contains("Do not change the Zadig drivers"));
+
+        let timeout = friendly_failure(
+            BuildAction::Upload,
+            &["FPGA programmer timed out after 90 seconds".into()],
+        );
+        assert!(timeout.contains("Detect JTAG"));
+    }
+
+    #[test]
+    fn permits_only_one_job_per_project() {
+        let registry = JobRegistry::default();
+        let flag = || std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        registry
+            .insert("job-a".into(), "project-a".into(), flag())
+            .unwrap();
+        assert!(registry
+            .insert("job-b".into(), "project-a".into(), flag())
+            .is_err());
+        registry
+            .insert("job-c".into(), "project-b".into(), flag())
+            .unwrap();
+        registry.remove("job-a");
+        registry
+            .insert("job-d".into(), "project-a".into(), flag())
+            .unwrap();
+    }
+
+    #[test]
+    fn concurrent_starts_cannot_share_a_project() {
+        let registry = JobRegistry::default();
+        let accepted = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut threads = Vec::new();
+        for index in 0..32 {
+            let registry = registry.clone();
+            let accepted = accepted.clone();
+            threads.push(std::thread::spawn(move || {
+                let flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                if registry
+                    .insert(format!("job-{index}"), "same-project".into(), flag)
+                    .is_ok()
+                {
+                    accepted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                }
+            }));
+        }
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        assert_eq!(accepted.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 }

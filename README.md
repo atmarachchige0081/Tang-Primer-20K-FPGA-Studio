@@ -1,25 +1,25 @@
-# Tang Primer 20K FPGA Studio
+# Tang FPGA Studio
 
-[![Quality gates](https://github.com/atmarachchige0081/Tang-Primer-20K-FPGA-Studio/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/atmarachchige0081/Tang-Primer-20K-FPGA-Studio/actions/workflows/quality-gates.yml)
+[![Quality gates](https://github.com/atmarachchige0081/Tang-FPGA-Studio/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/atmarachchige0081/Tang-FPGA-Studio/actions/workflows/quality-gates.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6c63ff.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-4f9cff.svg)](https://www.python.org/)
-[![Release: v1.2.0](https://img.shields.io/badge/release-v1.2.0-42d392.svg)](CHANGELOG.md)
+[![Desktop: Tauri + Rust](https://img.shields.io/badge/desktop-Tauri%20%2B%20Rust-4f9cff.svg)](studio/)
+[![Release: v2.0.0](https://img.shields.io/badge/release-v2.0.0-42d392.svg)](CHANGELOG.md)
 
-An open-source, beginner-friendly FPGA IDE and development environment for the
-Sipeed Tang Primer 20K (`GW2A-LV18PG256C8/I7`). Simulate, inspect waveforms,
-lint, debug, build, upload to SRAM, and flash persistent designs through a
-polished desktop interface or single commands. The Dock carrier is the default
-pin map and programmer.
+An open-source, beginner-friendly FPGA IDE and development environment for
+Sipeed Tang Nano and Tang Primer boards. Simulate, inspect waveforms, lint,
+debug, build, upload to SRAM, and flash persistent designs through a polished
+desktop interface or single commands. Existing Primer 20K Dock projects remain
+the default and are fully backward compatible.
 
 **Installing for the first time?** Follow [INSTALL.md](INSTALL.md) from a clean
 Windows computer through dependencies, simulation, JTAG setup, build, and your
 first LED program on real hardware.
 
 > **Easiest Windows setup:** download the
-> [one-file Tang Primer FPGA Studio installer](https://github.com/atmarachchige0081/TangPrimer-FPGA-Studio-Installer/releases/latest),
+> [one-file Tang FPGA Studio installer](https://github.com/atmarachchige0081/Tang-FPGA-Studio-Installer/releases/latest),
 > keep the recommended FPGA-toolchain task selected, and launch the Studio from
 > its new Desktop icon. The separate
-> [installer repository](https://github.com/atmarachchige0081/TangPrimer-FPGA-Studio-Installer)
+> [installer repository](https://github.com/atmarachchige0081/Tang-FPGA-Studio-Installer)
 > publishes SHA-256 checksums, public GitHub/Sigstore build provenance, and
 > beginner installation instructions. Releases are provenance-attested but do
 > not yet have a trusted Windows Authenticode publisher certificate, so
@@ -27,21 +27,43 @@ first LED program on real hardware.
 
 The pinned [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build) provides Yosys synthesis, nextpnr-himbaechel placement/routing, Project Apicula bitstream packing, openFPGALoader programming, Verilator linting, Icarus simulation, GTKWave, and formal tools. It is installed at `C:\fpga-tools\2026-07-26\oss-cad-suite` so the tool path contains no spaces, as recommended by YosysHQ. The project path may contain spaces because all build commands run with relative paths.
 
+## Supported Tang boards in Studio 2
+
+| Board package | FPGA | Programmer alias | Release verification |
+|---|---|---|---|
+| Tang Nano 1K | `GW1NZ-LV1QN48C6/I5` | `tangnano1k` | Full open-source build smoke test |
+| Tang Nano 4K | `GW1NSR-LV4CQN48PC6/I5` | `tangnano4k` | Full open-source build smoke test |
+| Tang Nano 9K | `GW1NR-LV9QN88PC6/I5` | `tangnano9k` | Full build plus UART-capable pin package |
+| Tang Nano 20K | `GW2AR-LV18QN88C8/I7` | `tangnano20k` | Full build plus UART-capable pin package |
+| Tang Primer 20K + Dock | `GW2A-LV18PG256C8/I7` | `tangprimer20k` | Full build, JTAG detect, UART, and Dock I/O |
+| Tang Primer 20K Core / Lite | `GW2A-LV18PG256C8/I7` | `tangprimer20k` | Device build verified; external carrier pins stay user-defined |
+
+The New Project Wizard filters the list by template compatibility, then writes
+the selected device, internal nextpnr family, constraint file, clock, and
+openFPGALoader alias into that project. This prevents a beginner from silently
+building a Dock pinout for a Nano board. Primer Core and Lite profiles include
+only the safe onboard clock until carrier-specific I/O is deliberately added.
+
 ## Beginner desktop IDE
 
-Start the graphical interface with one command:
+The one-file Windows installer creates a **Tang FPGA Studio** Desktop shortcut.
+Open that shortcut for normal use; Python, Node.js, and Rust are not required.
+
+Contributors running the native Tauri application from source can use:
 
 ```powershell
-.\FPGA-IDE.ps1
+Set-Location .\studio
+npm install
+npm run desktop
 ```
 
-Windows users can alternatively double-click `Open-FPGA-IDE.cmd`.
+Run `npm run desktop:doctor` if Cargo is not yet visible in a new terminal.
 
 | Accessible dark mode | New accessible light mode |
 |---|---|
 | ![Tang Primer FPGA Studio dark workspace](docs/images/studio-main.png) | ![Tang Primer FPGA Studio light workspace](docs/images/studio-main-light.png) |
 
-The v1.2 workspace uses calmer, more natural dark and light palettes, clearer
+The Studio 2 workspace uses calmer, more natural dark and light palettes, clearer
 human language, consistent spacing, and focused guided workflows. It includes
 custom iconography, searchable navigation, open-file tabs, symbol definitions
 and references, named-port instance generation, contextual HDL explanations,
@@ -53,25 +75,24 @@ simulation, GTKWave, lint, debug, build, SRAM upload, persistent flash, JTAG
 detection, hardware diagnosis, an integrated read/write UART terminal, tool
 setup, and driver setup.
 
-Version 1.2.0 can switch the complete live workspace between dark and light
-modes from the header, **View** menu, or `Ctrl+Alt+T`. The choice is remembered
+Studio 2 can switch the complete live workspace between dark and light modes
+from the header, **View** menu, or `Ctrl+Shift+L`. The choice is remembered
 locally. Editors, dialogs, menus, selections, syntax colors, status states,
 tooltips, and all custom icons change together without closing files or losing
-work. Both palettes are checked for WCAG contrast, and a release stress test
-switches themes repeatedly with dialogs open and verifies automatic rollback
-after an injected UI failure. To force a startup theme, run
-`./FPGA-IDE.ps1 -Theme light` or `./FPGA-IDE.ps1 -Theme dark`.
+work. Press `Ctrl+K` for the context-aware action center, or use the real File,
+Edit, Project, Build, Hardware, and Help menus. Both palettes are checked for
+contrast and exercised by the release regression suite.
 
 ### A useful first launch
 
-![Version 1.2.0 first-launch release notes](docs/images/studio-release-notes.png)
+![Studio 2 first-launch release notes](docs/images/studio-release-notes.png)
 
 The first launch of each Studio version opens a concise, visual **What's new**
 screen instead of dropping a beginner straight into source code. It appears
 only once per version, stores that acknowledgement in local settings, and can
-always be reopened from **Help → What's new** or the command palette.
+always be reopened from **Help → Release notes** or the action center.
 
-### Guided v1.2 workflows
+### Guided Studio workflows
 
 | Select a testbench and waveform layout | Auto-detected read/write UART terminal |
 |---|---|
@@ -88,6 +109,11 @@ Tool errors that include a source location are clickable in the console. The
 hardware guide clearly separates JTAG Interface 0 from UART Interface 1, while
 the UART terminal auto-detects COM ports and supports ASCII/hex display,
 timestamps, transmit history, line endings, and log saving.
+
+Studio 2 also reads the real Git executable and repository status, validates
+declarative providers under `plugins/`, and loads the local HDL pattern catalog
+only after the workspace is ready. The serial terminal includes a one-click
+beginner command pad for the friendly command-console lesson.
 
 ### Synthesized netlist viewer
 
@@ -189,6 +215,7 @@ The command-line build discovers `.v` and `.sv` files under `rtl/` automatically
 |---|---|
 | [`01_button_led_pwm`](projects/01_button_led_pwm) | Synchronizers, debouncing, clock enables, counters, PWM, state/mode control, self-checking bounce simulation, and a prepared GTKWave layout. |
 | [`03_uart_terminal`](projects/03_uart_terminal) | A synthesizable 115200-baud RX/TX, 30-byte greeting, ready/valid handshake, framing checks, echo behavior, integrated terminal workflow, and complete protocol simulation. |
+| [`05_serial_command_console`](projects/05_serial_command_console) | A case-insensitive `HELP`, `PING`, `LED`, `STATUS`, and `ABOUT` command parser with friendly FPGA replies, clickable terminal presets, and protocol-level verification. |
 | [`_template`](projects/_template) | Minimal, buildable starting point for creating additional examples with the same commands. |
 
 Each project is self-contained. For Project 01:

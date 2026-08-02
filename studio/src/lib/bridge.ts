@@ -2,15 +2,18 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   BuildAction,
+  BoardProfile,
   BuildEvent,
   BuildHistoryEntry,
   BuildSummary,
   CommandResult,
   HdlIndex,
   HdlPattern,
+  GitStatus,
   NetlistGraph,
   ProjectNode,
   ProjectTemplate,
+  PluginInfo,
   SerialDevice,
   SerialEvent,
   WaveformData,
@@ -50,11 +53,20 @@ const demoTree: ProjectNode[] = [
 const demoTemplates: ProjectTemplate[] = [
   { id: "led_button", name: "LED and button starter", description: "Board I/O, counter, simulation, and waveform.", level: "Beginner", category: "Fundamentals", base: "projects/_template", hardwareReady: true, tags: ["led", "button"] },
   { id: "uart_terminal", name: "UART terminal", description: "Verified greeting and echo at 115200 baud.", level: "Beginner +", category: "Interfaces", base: "projects/03_uart_terminal", hardwareReady: true, tags: ["uart", "serial"] },
+  { id: "serial_commands", name: "Friendly serial command console", description: "Verified command parsing and friendly FPGA replies.", level: "Beginner +", category: "Interfaces", base: "projects/05_serial_command_console", hardwareReady: true, tags: ["uart", "commands"] },
   { id: "spi_controller", name: "SPI controller", description: "Mode-0 byte transfers and loopback verification.", level: "Intermediate", category: "Interfaces", base: "projects/_template", hardwareReady: true, tags: ["spi", "fsm"] },
   { id: "pwm_controller", name: "Button-controlled PWM", description: "Debouncing and multi-channel LED PWM.", level: "Beginner +", category: "Control", base: "projects/01_button_led_pwm", hardwareReady: true, tags: ["pwm", "cdc"] },
   { id: "vga_timing", name: "VGA timing laboratory", description: "Raster coordinates and sync timing.", level: "Intermediate", category: "Video", base: "projects/_template", hardwareReady: true, tags: ["vga", "timing"] },
   { id: "riscv_scaffold", name: "RISC-V core scaffold", description: "RV32I decoder and program-counter shell.", level: "Advanced starter", category: "Processors", base: "projects/_template", hardwareReady: true, tags: ["risc-v", "rv32i"] },
 ];
+
+const demoBoard: BoardProfile = {
+  schemaVersion: 1, id: "tang_primer_20k", name: "Sipeed Tang Primer 20K with Dock",
+  vendor: "Gowin", family: "GW2A-18C", yosysFamily: "gw2a", device: "GW2A-LV18PG256C8/I7",
+  logicCells: 20736, clocks: [{ name: "clk_27mhz", frequencyHz: 27000000, pin: "H11", ioStandard: "LVCMOS33" }],
+  programmer: { backend: "openFPGALoader", board: "tangprimer20k", transport: "ftdi-mpsse", jtagInterface: 0, uartInterface: 1, usbVid: "0403", usbPid: "6010" },
+  constraints: ["constraints/primer20k_dock.cst"], capabilities: ["jtag", "sram", "flash", "uart", "leds"],
+};
 
 export const bridge = {
   isDesktop,
@@ -87,6 +99,27 @@ export const bridge = {
     ];
   },
 
+  async boards(root: string): Promise<BoardProfile[]> {
+    return isDesktop() ? invoke<BoardProfile[]>("list_boards", { root }) : [demoBoard];
+  },
+
+  async activeBoard(root: string, project: string): Promise<BoardProfile> {
+    return isDesktop() ? invoke<BoardProfile>("active_board", { root, project }) : demoBoard;
+  },
+
+  async gitStatus(root: string): Promise<GitStatus> {
+    if (isDesktop()) return invoke<GitStatus>("read_git_status", { root });
+    return { available: true, repository: true, executable: "git", version: "git version (preview)", branch: "develop/v2.0.0", upstream: "origin/develop/v2.0.0", ahead: 0, behind: 0, changes: [], message: "Working tree clean" };
+  },
+
+  async plugins(root: string): Promise<PluginInfo[]> {
+    if (isDesktop()) return invoke<PluginInfo[]>("list_plugins", { root });
+    return [
+      { id: "fpga-studio.boards", name: "Tang Board Packages", version: "2.0.0", kind: "board", entry: "provider.json", capabilities: ["read-project"], valid: true, message: "Bundled and ready" },
+      { id: "fpga-studio.hdl-patterns", name: "HDL Pattern Library", version: "2.0.0", kind: "ip", entry: "provider.json", capabilities: ["read-project", "write-generated"], valid: true, message: "Bundled and ready" },
+    ];
+  },
+
   async hdlIndex(root: string, project: string): Promise<HdlIndex> {
     if (isDesktop()) return invoke<HdlIndex>("read_hdl_index", { root, project });
     return { top: "top", files: ["rtl/top.sv"], symbols: [
@@ -97,8 +130,8 @@ export const bridge = {
     ], diagnostics: [] };
   },
 
-  async createProject(root: string, name: string, templateId: string, displayName: string): Promise<WorkspaceSnapshot> {
-    if (isDesktop()) return invoke<WorkspaceSnapshot>("create_project", { root, name, templateId, displayName });
+  async createProject(root: string, name: string, templateId: string, displayName: string, boardId: string): Promise<WorkspaceSnapshot> {
+    if (isDesktop()) return invoke<WorkspaceSnapshot>("create_project", { root, name, templateId, displayName, boardId });
     return { root, project: displayName || name, projectPath: `projects/${name}`, tree: demoTree, recentProjects: [`projects/${name}`] };
   },
 

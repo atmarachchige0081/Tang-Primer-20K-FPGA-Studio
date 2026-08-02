@@ -1,0 +1,4 @@
+// Tang Primer 20K core on Lite carrier: core oscillator only.
+// Add expansion I/O from the Lite carrier schematic for your exact circuit.
+IO_LOC  "clk_27mhz" H11;
+IO_PORT "clk_27mhz" IO_TYPE=LVCMOS33 PULL_MODE=UP;

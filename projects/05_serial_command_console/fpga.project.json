@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "name": "Friendly UART command console",
+  "folder": "05_serial_command_console",
+  "board": "tang_primer_20k",
+  "top": "top",
+  "template": "serial_commands",
+  "languages": ["systemverilog"],
+  "sourceRoots": ["rtl"],
+  "testRoots": ["sim"]
+}

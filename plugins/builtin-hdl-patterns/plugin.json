@@ -1,0 +1,10 @@
+{
+  "$schema": "../schema/plugin.schema.json",
+  "schemaVersion": 1,
+  "id": "fpga-studio.hdl-patterns",
+  "name": "HDL Pattern Library",
+  "version": "2.0.0",
+  "kind": "ip",
+  "entry": "provider.json",
+  "capabilities": ["read-project", "write-generated"]
+}

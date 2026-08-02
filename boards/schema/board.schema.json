@@ -34,7 +34,7 @@
       "properties": {
         "backend": { "enum": ["openFPGALoader"] },
         "board": { "type": "string" },
-        "transport": { "enum": ["ftdi-mpsse", "bl616", "cmsis-dap", "dirty-jtag"] },
+        "transport": { "enum": ["ftdi-mpsse", "bl616", "cmsis-dap", "dirty-jtag", "external-jtag"] },
         "jtagInterface": { "type": "integer", "minimum": 0 },
         "uartInterface": { "type": "integer", "minimum": 0 },
         "usbVid": { "type": "string", "pattern": "^[0-9A-Fa-f]{4}$" },

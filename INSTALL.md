@@ -1,4 +1,4 @@
-# Install Tang Primer 20K FPGA Studio on Windows
+# Install Tang FPGA Studio on Windows
 
 This guide starts with a normal Windows computer and ends with a verified
 design running on a Tang Primer 20K Dock. No previous FPGA, Verilog, Git, or
@@ -9,12 +9,19 @@ terminal experience is required.
 > an external programmer and a different pin file, so it is not the beginner
 > path described here.
 
+> **Other supported Tang boards:** Studio 2 also includes build/programmer
+> packages for Tang Nano 1K, 4K, 9K, and 20K plus Primer Core and Lite. Their
+> USB/debugger behavior and I/O differ, so complete this Dock walkthrough only
+> when you own the Dock. In the New Project Wizard, choose your actual board;
+> it will show only compatible templates and will never apply the Dock Zadig
+> procedure automatically to a different USB layout.
+
 ## What you will accomplish
 
 By the end, you will have:
 
-1. installed Python and optionally Git/VS Code;
-2. downloaded this repository;
+1. installed the native Tang FPGA Studio application;
+2. prepared a writable FPGA workspace;
 3. installed the complete open-source FPGA toolchain;
 4. simulated the first project and viewed its waveforms;
 5. connected and detected the Tang Primer 20K safely;
@@ -41,14 +48,14 @@ connected. Seat the core board fully in the Dock before powering it.
 | Software | Required? | Why it is used |
 |---|---:|---|
 | Windows PowerShell | Yes | Runs every setup, simulation, build, and programming command. Windows 10/11 already includes it. |
-| Python 3.10 or newer | Yes for the desktop Studio | Runs the graphical IDE. No third-party Python packages are required. |
+| Tang FPGA Studio installer | Recommended | Installs the native application, workspace, shortcuts, and pinned toolchain without development dependencies. |
 | Git | Recommended | Downloads the repository and makes future updates easy. A ZIP download also works. |
 | Visual Studio Code | Optional | Provides another code editor and ready-made FPGA tasks. The included desktop Studio works without it. |
 | OSS CAD Suite | Yes | Contains Yosys, nextpnr, Project Apicula, openFPGALoader, Icarus Verilog, Verilator, GTKWave, and other FPGA tools. The repository installs it for you. |
 | Zadig | Only for Dock JTAG on Windows | Changes only the Dock's JTAG USB interface to WinUSB. The repository downloads and verifies it for you. |
 
-You do **not** need WSL, Node.js, `pip install`, a Python virtual environment,
-Gowin EDA, or a paid license for this workflow.
+Installer users do **not** need WSL, Python, Node.js, Rust, `pip install`, a
+virtual environment, Gowin EDA, or a paid license for this workflow.
 
 ## A note about commands
 
@@ -88,28 +95,27 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 This temporary setting disappears when that PowerShell window is closed. Do
 not change the machine-wide execution policy for this project.
 
-## Step 2 — Install Python
+## Step 2 — Install the one-file Windows application
 
-Python runs the Tang Primer FPGA Studio desktop interface. The FPGA command
-line can work without it, but beginners should install it.
+1. Open the [latest installer release](https://github.com/atmarachchige0081/Tang-FPGA-Studio-Installer/releases/latest).
+2. Download `TangPrimerFPGAStudio-Setup-X.Y.Z.exe`.
+3. Double-click it and keep **Install or verify the pinned FPGA toolchain** and
+   **Create a desktop shortcut** selected.
+4. Finish setup, then double-click **Tang FPGA Studio** on the Desktop.
 
-1. Open the [official Python downloads page](https://www.python.org/downloads/).
-2. Install Python 3.10 or newer. The current Python Install Manager from
-   python.org or the Microsoft Store is supported.
-3. If the installer offers to make `python` available on `PATH`, accept it.
-4. Close PowerShell and open a new PowerShell window.
-5. Verify the installation:
+Setup creates a writable workspace at
+`Documents\Tang Primer FPGA Studio` and never overwrites existing user projects.
+The first setup downloads roughly 1.9 GB of FPGA tools, so it needs internet
+access and several gigabytes of free space. Windows may show **Unknown
+publisher** until the project obtains a commercial Authenticode certificate;
+the release page provides a SHA-256 checksum and signed GitHub provenance.
+
+If you installed this way, Git and VS Code in Steps 3–5 are optional. To use
+the PowerShell commands later, open PowerShell and run:
 
 ```powershell
-python --version
+Set-Location "$env:USERPROFILE\Documents\Tang Primer FPGA Studio"
 ```
-
-Expected result: `Python 3.10.x` or a newer version such as `3.13.x` or
-`3.14.x`.
-
-If `python` is not found, restart Windows once and try again. The official
-[Python on Windows guide](https://docs.python.org/3/using/windows.html) explains
-the current Python Install Manager and command aliases.
 
 ## Step 3 — Install Git (recommended)
 
@@ -143,7 +149,7 @@ the repository is public.
 
 ## Step 4 — Install Visual Studio Code (optional)
 
-Skip this step if you want to use only Tang Primer FPGA Studio.
+Skip this step if you want to use only Tang FPGA Studio.
 
 1. Download the **User Setup** installer from the
    [official VS Code Windows guide](https://code.visualstudio.com/docs/setup/windows).
@@ -158,9 +164,10 @@ code --version
 The FPGA setup later attempts to install the repository's recommended Verilog
 extension automatically when the `code` command is available.
 
-## Step 5 — Download Tang Primer 20K FPGA Studio
+## Step 5 — Optional source checkout
 
-Choose **one** of the following methods.
+Skip this step when you used the one-file installer. Developers and users who
+prefer a portable source checkout can choose one of the following methods.
 
 ### Method A: clone with Git (recommended)
 
@@ -168,8 +175,8 @@ Move to your Desktop, clone the public repository, and enter its folder:
 
 ```powershell
 Set-Location "$env:USERPROFILE\Desktop"
-git clone https://github.com/atmarachchige0081/Tang-Primer-20K-FPGA-Studio.git
-Set-Location .\Tang-Primer-20K-FPGA-Studio
+git clone https://github.com/atmarachchige0081/Tang-FPGA-Studio.git
+Set-Location .\Tang-FPGA-Studio
 ```
 
 GitHub's [cloning guide](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
@@ -177,7 +184,7 @@ explains that cloning makes a complete local copy of the repository.
 
 ### Method B: download a ZIP without Git
 
-1. Open the [Tang Primer 20K FPGA Studio repository](https://github.com/atmarachchige0081/Tang-Primer-20K-FPGA-Studio).
+1. Open the [Tang FPGA Studio repository](https://github.com/atmarachchige0081/Tang-FPGA-Studio).
 2. Select the green **Code** button.
 3. Select **Download ZIP**.
 4. In File Explorer, right-click the downloaded ZIP and select **Extract All**.
@@ -192,16 +199,18 @@ Run:
 
 ```powershell
 Test-Path .\fpga.ps1
-Test-Path .\FPGA-IDE.ps1
+Test-Path .\boards
 ```
 
 Both commands must print `True`. If either prints `False`, use `Set-Location`
-to enter the folder that directly contains `README.md`, `fpga.ps1`,
-`FPGA-IDE.ps1`, `rtl`, `sim`, and `projects`.
+to enter the folder that directly contains `README.md`, `fpga.ps1`, `boards`,
+`studio`, and `projects`.
 
 ## Step 6 — Install the complete FPGA toolchain
 
-Run this command from the repository root:
+The recommended installer performs this step automatically. If you used a
+source checkout, or want to repair/verify the pinned installation, run this
+command from the workspace root:
 
 ```powershell
 .\fpga.ps1 setup
@@ -320,14 +329,21 @@ For the combined lint, simulation, and waveform workflow, use:
 
 ## Step 10 — Open the beginner desktop Studio
 
-Run:
+If you used the installer, double-click **Tang FPGA Studio** on the Desktop or
+open it from the Start menu. It automatically opens the writable workspace in
+Documents and does not require an online account or send telemetry.
+
+Source contributors can run the native application with:
 
 ```powershell
-.\FPGA-IDE.ps1 -Project projects/01_button_led_pwm
+Set-Location .\studio
+npm install
+npm run desktop
 ```
 
-You can also double-click `Open-FPGA-IDE.cmd` in File Explorer. The Studio does
-not require an online account and sends no telemetry.
+Node.js and Rust are development requirements only; installer users do not need
+them. If the source command says Cargo is missing, run `npm run desktop:doctor`
+and reopen the terminal once.
 
 Inside the Studio:
 
@@ -335,8 +351,9 @@ Inside the Studio:
 2. open `rtl/top.sv` from **Project files**;
 3. use **Simulate** to repeat Step 8;
 4. use **Waveform** to repeat Step 9;
-5. read the command output in **COMMAND CONSOLE**; and
-6. switch dark/light mode using the upper-right button or `Ctrl+Alt+T`.
+5. read the beginner-friendly message in the **Output** panel; and
+6. switch dark/light mode with `Ctrl+Shift+L`, or press `Ctrl+K` to search all
+   actions.
 
 Where beginners put code:
 
@@ -512,18 +529,19 @@ After the one-time installation, open PowerShell in the repository and use:
 
 Or launch the graphical workspace:
 
-```powershell
-.\FPGA-IDE.ps1 -Project projects/01_button_led_pwm
-```
+1. double-click **Tang FPGA Studio** on the Desktop;
+2. choose `01_button_led_pwm` in the project selector; and
+3. use Simulate, Build, then SRAM from the toolbar.
 
 ## Troubleshooting checkpoints
 
-### `python` is not recognized
+### The Desktop shortcut does not open
 
-- Close and reopen PowerShell after installing Python.
-- Run `python --version` again.
-- Use the Python Install Manager's PATH option described in the
-  [official Windows documentation](https://docs.python.org/3/using/windows.html).
+- Start **Tang FPGA Studio** from the Windows Start menu once.
+- Repair the application from **Settings → Apps → Installed apps**.
+- Source contributors should run `npm run desktop:doctor` inside `studio`.
+- Startup failures are recorded in
+  `%LOCALAPPDATA%\Tang FPGA Studio\logs\crash.log`.
 
 ### PowerShell says the script cannot be loaded
 
@@ -589,6 +607,16 @@ Converter A / `MI_00` should remain WinUSB.
 The FPGA tools are working; the problem is the Windows JTAG driver. Repeat
 Steps 11–13 and change only Converter A / `MI_00` to WinUSB.
 
+If the output says `usb bulk write failed` or the programmer times out, do not
+change drivers again. Unplug the board USB cable, wait three seconds, reconnect
+it, run Detect JTAG, and retry SRAM. Studio stops a non-responsive programmer
+after 90 seconds and keeps the editor responsive.
+
+If an older checkout reports `FsParser: checksum data is truncated`, rebuild
+with the current Studio before uploading. Current builds use an uncompressed,
+structurally validated Gowin FS file that is compatible with the pinned
+openFPGALoader.
+
 ### Upload succeeds but the LEDs do not animate
 
 - Confirm this is the Dock carrier, not the Lite carrier.
@@ -619,5 +647,5 @@ these files in order:
 4. [`rtl/led_mode_controller.sv`](projects/01_button_led_pwm/rtl/led_mode_controller.sv) — counters, state, PWM, and modes; and
 5. [`sim/tb_top.sv`](projects/01_button_led_pwm/sim/tb_top.sv) — how the automatic verification works.
 
-Press `Ctrl+Alt+S` in Tang Primer FPGA Studio to browse the 72 categorized HDL
-patterns when you are ready to create your own modules.
+Press `Ctrl+K` in Tang FPGA Studio and search for the Pattern Library when you
+are ready to browse the categorized HDL examples and create your own modules.

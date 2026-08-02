@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schema/board.schema.json",
+  "schemaVersion": 1,
+  "id": "tang_nano_4k",
+  "name": "Sipeed Tang Nano 4K",
+  "vendor": "Gowin",
+  "family": "GW1NS-4",
+  "yosysFamily": "gw1n",
+  "device": "GW1NSR-LV4CQN48PC6/I5",
+  "logicCells": 4608,
+  "clocks": [{ "name": "clk_27mhz", "frequencyHz": 27000000, "pin": "45", "ioStandard": "LVCMOS33" }],
+  "programmer": { "backend": "openFPGALoader", "board": "tangnano4k", "transport": "ftdi-mpsse" },
+  "constraints": ["constraints/tang_nano_4k.cst"],
+  "documentation": "README.md",
+  "capabilities": ["jtag", "sram", "flash", "led", "camera", "hdmi"]
+}

@@ -34,15 +34,27 @@ export function valueAt(signal: WaveSignal, time: number): string | undefined {
 }
 
 export function visibleTransitions(signal: WaveSignal, window: WaveWindow): number {
-  return signal.samples.filter((sample) => sample.time > window.start && sample.time <= window.end).length;
+  return Math.max(0, firstIndexAfter(signal, window.end) - firstIndexAfter(signal, window.start));
+}
+
+function firstIndexAfter(signal: WaveSignal, time: number): number {
+  let low = 0;
+  let high = signal.samples.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (signal.samples[middle]!.time <= time) low = middle + 1;
+    else high = middle;
+  }
+  return low;
 }
 
 export function scalarPoints(signal: WaveSignal, window: WaveWindow): string {
   const level = (value: string | undefined) => value === "1" ? 7 : value === "0" ? 30 : 19;
   let previous = valueAt(signal, window.start) ?? signal.samples.find((sample) => sample.time >= window.start)?.value;
   const points = [`0,${level(previous)}`];
-  for (const sample of signal.samples) {
-    if (sample.time <= window.start || sample.time > window.end) continue;
+  for (let index = firstIndexAfter(signal, window.start); index < signal.samples.length; index += 1) {
+    const sample = signal.samples[index]!;
+    if (sample.time > window.end) break;
     const x = xAt(sample.time, window);
     points.push(`${x},${level(previous)}`, `${x},${level(sample.value)}`);
     previous = sample.value;
@@ -54,8 +66,9 @@ export function scalarPoints(signal: WaveSignal, window: WaveWindow): string {
 export function busPaths(signal: WaveSignal, window: WaveWindow): { top: string; bottom: string } {
   const top = ["M0 8"];
   const bottom = ["M0 30"];
-  for (const sample of signal.samples) {
-    if (sample.time <= window.start || sample.time > window.end) continue;
+  for (let index = firstIndexAfter(signal, window.start); index < signal.samples.length; index += 1) {
+    const sample = signal.samples[index]!;
+    if (sample.time > window.end) break;
     const x = xAt(sample.time, window);
     const shoulder = Math.min(3, x, WIDTH - x);
     top.push(`L${x - shoulder} 8 L${x} 19 L${x + shoulder} 8`);

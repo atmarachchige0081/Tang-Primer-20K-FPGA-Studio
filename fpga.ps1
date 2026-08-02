@@ -235,11 +235,12 @@ function Invoke-Build {
         '--detailed-timing-report'
     )
     Invoke-NativeTool 'gowin_pack' @(
-        '-c', '-d', $Config.Family,
+        '-d', $Config.Family,
         '-o', $Config.Bitstream,
         'build/top_pnr.json'
     )
 
+    Assert-Bitstream
     $bitstream = Get-Item -LiteralPath (Join-Path $ProjectRoot $Config.Bitstream)
     Write-Host ("Build complete: {0} ({1:N0} bytes)" -f $bitstream.FullName, $bitstream.Length) -ForegroundColor Green
     Write-Host 'Reports: build/yosys.log and build/timing.json'
@@ -249,6 +250,27 @@ function Assert-Bitstream {
     $bitstream = Join-Path $ProjectRoot $Config.Bitstream
     if (-not (Test-Path -LiteralPath $bitstream)) {
         throw "Bitstream is missing: $bitstream. Run '.\fpga.ps1 build'."
+    }
+    $item = Get-Item -LiteralPath $bitstream
+    if ($item.Length -lt 1024) {
+        throw "Bitstream is unexpectedly small ($($item.Length) bytes). Rebuild before programming."
+    }
+    $lines = [IO.File]::ReadAllLines($item.FullName)
+    if ($lines.Count -lt 10) {
+        throw 'Bitstream has no complete Gowin FS header. Rebuild before programming.'
+    }
+    $control = $lines | Where-Object { $_.StartsWith('00010000') } | Select-Object -First 1
+    if (-not $control -or $control.Length -ne 64) {
+        throw 'Bitstream has no valid Gowin control header. Rebuild before programming.'
+    }
+    $compressionBit = $control[$control.Length - 1 - 13]
+    if ($compressionBit -eq '1') {
+        throw 'Compressed Gowin FS files are blocked because this openFPGALoader build cannot safely parse their checksum. Rebuild with the updated FPGA Studio.'
+    }
+    foreach ($line in $lines) {
+        if (-not $line -or ($line.Length % 8) -ne 0 -or $line -notmatch '^[01]+$') {
+            throw 'Bitstream contains a truncated or invalid Gowin FS line. Rebuild before programming.'
+        }
     }
 }
 

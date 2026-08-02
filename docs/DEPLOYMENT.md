@@ -2,20 +2,23 @@
 
 ## Supported deployment
 
-The supported distribution is a complete repository checkout on Windows 10 or
-11. Keeping the UI, project templates, PowerShell runner, constraints, and
-documentation together prevents version skew.
+The supported end-user distribution is the native one-file Windows installer.
+It installs the Tauri/Rust application under Program Files and prepares a
+writable, version-matched workspace under Documents. A complete repository
+checkout remains supported for contributors.
 
 Requirements:
 
-- Python 3.10 or later with Tk enabled (included by default in python.org's
-  Windows installer).
 - PowerShell 5.1 or later.
-- A supported Tang Primer 20K + Dock connection for hardware commands.
+- Microsoft Edge WebView2 (included with current Windows 10/11 and repaired by
+  the Tauri installer when necessary).
+- A supported Tang Nano or Tang Primer board package; the Primer 20K Dock is
+  the maintained hardware/JTAG/UART acceptance target.
 - The pinned OSS CAD Suite installed by `./fpga.ps1 setup`.
 
-Launch with `./FPGA-IDE.ps1` or double-click `Open-FPGA-IDE.cmd`. Use
-`./FPGA-IDE.ps1 -Console` when diagnosing startup problems.
+Installed users launch **Tang FPGA Studio** from the Desktop or Start menu and
+do not need Python, Node.js, or Rust. Source contributors need current Node.js
+and Rust, then run `npm install` and `npm run desktop` inside `studio`.
 
 ## Release gate
 
@@ -23,19 +26,26 @@ Run this before distributing a checkout or publishing a tag:
 
 ```powershell
 .\scripts\release-check.ps1
+.\scripts\stress-test.ps1 -Rounds 3 -Parallelism 2
 .\scripts\capture-screenshots.ps1
 git diff --check
 ```
 
-The release check compiles Python, runs unit and project-intelligence tests,
-validates both theme palettes, starts the complete UI in dark and light modes,
-stress-switches the live interface with dialogs open, verifies failure
-rollback, parses all PowerShell scripts, validates JSON, and runs HDL
-lint/simulation.
+The release check preserves regression coverage for the legacy companion UI,
+parses all PowerShell scripts, validates JSON, runs HDL lint/simulation, builds
+the native frontend, and runs the Rust security, parser, and project tests.
+The stress runner additionally builds five distinct Tang device families in
+parallel, repeats UI and backend suites, and exercises the backend's same-project
+job lock. Parallelism is capped at four and defaults to two for laptop safety.
 GitHub Actions repeats platform-independent gates for every push and pull
 request.
 
 ## Automatic one-file installer release
+
+Studio 2 preview builds use the NSIS `.exe` bundle. WiX/MSI does not accept
+textual semantic-version prerelease identifiers such as `alpha.1`; MSI can be
+re-enabled for the final numeric `2.0.0` version. NSIS remains the maintained
+one-file beginner installation path.
 
 The installer repository owns the Windows packaging workflow. On an upstream
 Studio release it performs the following controlled sequence:
@@ -57,11 +67,15 @@ any cross-repository secret (with up to an hour of delay).
 
 ## Runtime data
 
-The application stores local state under `.fpga-studio/`:
+The application stores project-local state under `.fpga-studio/`:
 
-- `settings.json` remembers the last selected project and dark/light choice.
-- `logs/studio.log` is a rotating diagnostic log, capped at approximately
-  1 MB per file with three backups.
+- `workspace-state.json` remembers the active project using atomic replace and
+  a backup file.
+- each project's `.fpga-studio/build-history.json` stores local build history.
+
+Theme and release-note preferences use the WebView profile's local storage.
+Native startup failures and panics are appended to
+`%LOCALAPPDATA%\Tang FPGA Studio\logs\crash.log` and show a recovery dialog.
 
 This directory is ignored by Git. The application sends no telemetry and does
 not require an account or network connection after toolchain setup.
@@ -69,6 +83,14 @@ not require an account or network connection after toolchain setup.
 ## Recovery
 
 - UI callback errors are logged and reported without terminating the editor.
+- Filesystem, Git, board, plugin, HDL, waveform, netlist, and serial work runs
+  outside the UI thread.
+- Output rendering is bounded, large waveform inputs are capped, dense traces
+  are summarized, and netlist edges are limited before layout.
+- Rapid double-clicks and concurrent FPGA jobs for the same project are rejected
+  without starting duplicate tool processes.
+- JTAG programming is stopped after 90 seconds without completion and reports
+  a board reconnect procedure.
 - A failed theme transition restores the previous palette; corrupt theme
   preferences fall back to dark mode.
 - Build artifacts can be recreated with `./fpga.ps1 clean` followed by build.

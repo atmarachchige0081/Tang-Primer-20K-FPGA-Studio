@@ -1,0 +1,4 @@
+// Tang Primer 20K core module: onboard 27 MHz oscillator only.
+// Constrain carrier-specific I/O from the carrier schematic before programming.
+IO_LOC  "clk_27mhz" H11;
+IO_PORT "clk_27mhz" IO_TYPE=LVCMOS33 PULL_MODE=UP;

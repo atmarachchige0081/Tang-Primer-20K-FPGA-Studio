@@ -40,6 +40,8 @@ pub struct ProjectTemplate {
     pub overlay: Option<String>,
     pub hardware_ready: bool,
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub supported_boards: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,6 +61,90 @@ pub struct HdlPattern {
     pub code: String,
     pub aliases: Vec<String>,
     pub synthesizable: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardClock {
+    pub name: String,
+    pub frequency_hz: u64,
+    pub pin: String,
+    #[serde(default)]
+    pub io_standard: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardProgrammer {
+    pub backend: String,
+    pub board: String,
+    pub transport: String,
+    #[serde(default)]
+    pub jtag_interface: Option<u8>,
+    #[serde(default)]
+    pub uart_interface: Option<u8>,
+    #[serde(default)]
+    pub usb_vid: Option<String>,
+    #[serde(default)]
+    pub usb_pid: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardProfile {
+    pub schema_version: u32,
+    pub id: String,
+    pub name: String,
+    pub vendor: String,
+    pub family: String,
+    #[serde(default)]
+    pub yosys_family: Option<String>,
+    pub device: String,
+    #[serde(default)]
+    pub logic_cells: Option<u64>,
+    pub clocks: Vec<BoardClock>,
+    pub programmer: BoardProgrammer,
+    pub constraints: Vec<String>,
+    #[serde(default)]
+    pub documentation: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitChange {
+    pub path: String,
+    pub index_status: String,
+    pub worktree_status: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitStatus {
+    pub available: bool,
+    pub repository: bool,
+    pub executable: Option<String>,
+    pub version: Option<String>,
+    pub branch: Option<String>,
+    pub upstream: Option<String>,
+    pub ahead: u32,
+    pub behind: u32,
+    pub changes: Vec<GitChange>,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginInfo {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub kind: String,
+    pub entry: String,
+    pub capabilities: Vec<String>,
+    pub valid: bool,
+    pub message: String,
 }
 
 #[derive(Debug, Deserialize)]

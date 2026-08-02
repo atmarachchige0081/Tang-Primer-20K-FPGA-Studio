@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schema/board.schema.json",
+  "schemaVersion": 1,
+  "id": "tang_nano_1k",
+  "name": "Sipeed Tang Nano 1K",
+  "vendor": "Gowin",
+  "family": "GW1NZ-1",
+  "yosysFamily": "gw1n",
+  "device": "GW1NZ-LV1QN48C6/I5",
+  "logicCells": 1152,
+  "clocks": [{ "name": "clk_27mhz", "frequencyHz": 27000000, "pin": "47", "ioStandard": "LVCMOS33" }],
+  "programmer": { "backend": "openFPGALoader", "board": "tangnano1k", "transport": "ftdi-mpsse" },
+  "constraints": ["constraints/tang_nano_1k.cst"],
+  "documentation": "README.md",
+  "capabilities": ["jtag", "sram", "flash", "rgb-led"]
+}

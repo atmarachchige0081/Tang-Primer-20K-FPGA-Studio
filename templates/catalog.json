@@ -9,6 +9,7 @@
       "category": "Fundamentals",
       "base": "projects/_template",
       "hardwareReady": true,
+      "supportedBoards": ["tang_primer_20k"],
       "tags": ["led", "button", "counter"]
     },
     {
@@ -19,7 +20,19 @@
       "category": "Interfaces",
       "base": "projects/03_uart_terminal",
       "hardwareReady": true,
+      "supportedBoards": ["tang_primer_20k"],
       "tags": ["uart", "serial", "fsm"]
+    },
+    {
+      "id": "serial_commands",
+      "name": "Friendly serial command console",
+      "description": "Send HELP, PING, LED and STATUS commands and receive friendly verified FPGA replies.",
+      "level": "Beginner +",
+      "category": "Interfaces",
+      "base": "projects/05_serial_command_console",
+      "hardwareReady": true,
+      "supportedBoards": ["tang_primer_20k", "tang_nano_9k", "tang_nano_20k"],
+      "tags": ["uart", "commands", "terminal"]
     },
     {
       "id": "spi_controller",
@@ -30,6 +43,7 @@
       "base": "projects/_template",
       "overlay": "templates/spi_controller",
       "hardwareReady": true,
+      "supportedBoards": ["tang_primer_20k"],
       "tags": ["spi", "shift-register", "fsm"]
     },
     {
@@ -40,6 +54,7 @@
       "category": "Control",
       "base": "projects/01_button_led_pwm",
       "hardwareReady": true,
+      "supportedBoards": ["tang_primer_20k"],
       "tags": ["pwm", "debounce", "cdc"]
     },
     {
@@ -51,6 +66,7 @@
       "base": "projects/_template",
       "overlay": "templates/vga_timing",
       "hardwareReady": true,
+      "supportedBoards": ["tang_primer_20k"],
       "tags": ["vga", "timing", "counters"]
     },
     {
@@ -62,6 +78,7 @@
       "base": "projects/_template",
       "overlay": "templates/riscv_scaffold",
       "hardwareReady": true,
+      "supportedBoards": ["tang_primer_20k"],
       "tags": ["risc-v", "rv32i", "decoder"]
     }
   ]

@@ -1,0 +1,10 @@
+{
+  "$schema": "../schema/plugin.schema.json",
+  "schemaVersion": 1,
+  "id": "fpga-studio.boards",
+  "name": "Tang Board Packages",
+  "version": "2.0.0",
+  "kind": "board",
+  "entry": "provider.json",
+  "capabilities": ["read-project"]
+}

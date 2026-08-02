@@ -1,0 +1,9 @@
+// Tang Nano 1K: onboard 27 MHz oscillator and active-low RGB LED.
+IO_LOC  "clk_27mhz" 47;
+IO_PORT "clk_27mhz" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC  "led_n[0]" 9;
+IO_LOC  "led_n[1]" 10;
+IO_LOC  "led_n[2]" 11;
+IO_PORT "led_n[0]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_PORT "led_n[1]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_PORT "led_n[2]" IO_TYPE=LVCMOS33 DRIVE=8;

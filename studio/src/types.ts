@@ -158,6 +158,7 @@ export interface ProjectTemplate {
   overlay?: string;
   hardwareReady: boolean;
   tags: string[];
+  supportedBoards?: string[];
 }
 
 export interface HdlPattern {
@@ -168,6 +169,67 @@ export interface HdlPattern {
   code: string;
   aliases: string[];
   synthesizable: boolean;
+}
+
+export interface BoardClock {
+  name: string;
+  frequencyHz: number;
+  pin: string;
+  ioStandard?: string;
+}
+
+export interface BoardProfile {
+  schemaVersion: number;
+  id: string;
+  name: string;
+  vendor: string;
+  family: string;
+  yosysFamily?: string;
+  device: string;
+  logicCells?: number;
+  clocks: BoardClock[];
+  programmer: {
+    backend: string;
+    board: string;
+    transport: string;
+    jtagInterface?: number;
+    uartInterface?: number;
+    usbVid?: string;
+    usbPid?: string;
+  };
+  constraints: string[];
+  documentation?: string;
+  capabilities: string[];
+}
+
+export interface GitChange {
+  path: string;
+  indexStatus: string;
+  worktreeStatus: string;
+}
+
+export interface GitStatus {
+  available: boolean;
+  repository: boolean;
+  executable?: string;
+  version?: string;
+  branch?: string;
+  upstream?: string;
+  ahead: number;
+  behind: number;
+  changes: GitChange[];
+  message: string;
+}
+
+export interface PluginInfo {
+  id: string;
+  name: string;
+  version: string;
+  kind: string;
+  entry: string;
+  capabilities: string[];
+  valid: boolean;
+  message: string;
 }
 
 export interface HdlSymbol {

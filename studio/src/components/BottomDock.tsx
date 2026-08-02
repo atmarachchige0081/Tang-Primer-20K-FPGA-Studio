@@ -8,13 +8,14 @@ const panels: Array<{ id: BottomPanel; label: string }> = [
 ];
 
 export function BottomDock(): React.JSX.Element {
-  const { bottomPanel, bottomOpen, setBottomPanel, toggleBottom, diagnostics, clearOutput } = useWorkbench();
+  const { bottomPanel, bottomOpen, setBottomPanel, toggleBottom, diagnostics, clearOutput, output } = useWorkbench();
+  const copyOutput = () => void navigator.clipboard.writeText(output.map((event) => `[${event.phase}] ${event.message}`).join("\n")).catch(() => undefined);
   return <section className={`bottom-dock ${bottomOpen ? "open" : "closed"}`}>
     <div className="dock-tabs">
       {panels.map((panel) => <button className={panel.id === bottomPanel ? "active" : ""} key={panel.id} onClick={() => setBottomPanel(panel.id)}>{panel.label}{panel.id === "problems" && diagnostics.length > 0 && <span className="count-badge">{diagnostics.length}</span>}</button>)}
       <span className="dock-spacer" />
       <button className="dock-icon" onClick={clearOutput} title="Clear output"><Eraser size={14}/></button>
-      <button className="dock-icon" title="Copy"><Copy size={14}/></button>
+      <button className="dock-icon" title="Copy output" onClick={copyOutput} disabled={!output.length}><Copy size={14}/></button>
       <button className="dock-icon" onClick={toggleBottom} title={bottomOpen ? "Collapse panel" : "Expand panel"}>{bottomOpen ? <ChevronDown size={15}/> : <ChevronUp size={15}/>}</button>
     </div>
     {bottomOpen && <div className="dock-content">
@@ -33,10 +34,12 @@ function Output(): React.JSX.Element {
   const output = useWorkbench((state) => state.output);
   const [technical, setTechnical] = useState(false);
   if (!output.length) return <div className="empty-dock"><TerminalSquare size={18}/><span>Build and tool output will appear here.</span></div>;
-  const isTechnical = (message: string) => /^\s*(?:At .+:\d+ char:\d+|\+|~+|CategoryInfo|FullyQualifiedErrorId)/.test(message) || !message.trim();
+  const isTechnical = (message: string) => /^\s*(?:At .+:\d+ char:\d+|\+|~+|CategoryInfo|FullyQualifiedErrorId|warnings\.warn\()/.test(message) || /apycula[/\\].*UserWarning: .*performance will be degraded/i.test(message) || !message.trim();
   const hidden = output.filter((event) => isTechnical(event.message)).length;
-  const visible = technical ? output : output.filter((event) => !isTechnical(event.message));
-  return <div className="output-view"><div className="output-options"><span>{technical ? "Complete tool output" : "Beginner-friendly output"}</span>{hidden > 0 && <button onClick={() => setTechnical((value) => !value)}>{technical ? "Hide technical details" : `Show ${hidden} technical detail${hidden === 1 ? "" : "s"}`}</button>}</div><div className="output-lines" aria-live="polite">{visible.map((event, index) => <div className={event.stream} key={`${event.timestamp}-${index}`}><span>{new Date(event.timestamp).toLocaleTimeString([], { hour12: false })}</span><strong>{event.phase}</strong><code>{event.message}</code></div>)}</div></div>;
+  const allVisible = technical ? output : output.filter((event) => !isTechnical(event.message));
+  const omitted = Math.max(0, allVisible.length - 400);
+  const visible = allVisible.slice(-400);
+  return <div className="output-view"><div className="output-options"><span>{technical ? "Complete tool output" : "Beginner-friendly output"}{omitted > 0 ? ` · ${omitted} older lines kept off-screen for performance` : ""}</span>{hidden > 0 && <button onClick={() => setTechnical((value) => !value)}>{technical ? "Hide technical details" : `Show ${hidden} technical detail${hidden === 1 ? "" : "s"}`}</button>}</div><div className="output-lines" aria-live="polite">{visible.map((event, index) => <div className={event.stream} key={`${event.timestamp}-${index}`}><span>{new Date(event.timestamp).toLocaleTimeString([], { hour12: false })}</span><strong>{event.phase}</strong><code>{event.message}</code></div>)}</div></div>;
 }
 
 function Terminal(): React.JSX.Element {

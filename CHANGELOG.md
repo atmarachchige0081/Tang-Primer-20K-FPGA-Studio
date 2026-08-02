@@ -2,9 +2,52 @@
 
 All notable user-facing changes are recorded here.
 
-## Unreleased
+## 2.0.0 — 2026-08-02
 
-- No changes yet.
+### Added
+
+- Added validated packages for Tang Nano 1K, 4K, 9K, and 20K plus Tang Primer
+  20K Dock, Core, and Lite variants, including installed OSS CAD Suite family
+  mappings and all openFPGALoader board aliases.
+- Added a friendly UART command-console project with case-insensitive `HELP`,
+  `PING`, `LED ON`, `LED OFF`, `STATUS`, and `ABOUT` commands, complete replies,
+  a self-checking terminal model, waveform layout, and synthesized bitstream.
+- Added real read-only Git status and declarative plugin/provider discovery to
+  the native Studio, plus bundled board and HDL-pattern providers.
+- Added a laptop-safe parallel board-family build smoke test and a repeatable
+  frontend/backend/concurrency stress runner.
+- Added real File, Edit, Project, Build, Hardware, and Help menus plus a
+  keyboard-navigable `Ctrl+K` action center with a context-aware next step.
+- Added native startup panic logging and a visible recovery dialog under
+  `%LOCALAPPDATA%\Tang FPGA Studio\logs\crash.log`.
+
+### Changed
+
+- New Project now filters board choices by template compatibility and writes
+  project-specific device, family, constraints, clock, and programmer settings.
+- Hardware Manager uses the active board manifest and limits automatic Zadig
+  repair to the known Primer Dock `0403:6010` Interface 0 layout.
+- UART Terminal includes clickable beginner command presets, while the HDL
+  pattern panel now waits for workspace discovery and offers visible retry.
+- Backend FPGA jobs now enforce one writer per project so independent UI views
+  cannot corrupt a shared build directory.
+- Native filesystem, Git, board, plugin, HDL, waveform, netlist, and serial
+  operations now run off the UI thread. Output, waveform, and netlist rendering
+  are bounded to keep large designs responsive.
+- Gowin bitstreams are packed without the optional compression mode that is
+  mis-parsed by the pinned openFPGALoader, then structurally validated before
+  programming. JTAG programming has a 90-second watchdog and specific recovery
+  guidance for a reset FTDI endpoint.
+
+### Verified
+
+- Native frontend production build and 17 Vitest checks; 22 Rust parser,
+  security, package, and concurrency checks; UART lint, protocol simulation,
+  Primer place/route/packing at 27 MHz; and parallel full bitstream builds for
+  all five distinct Tang FPGA device families.
+- Live Primer 20K Dock acceptance passed on Windows: JTAG ID `0x81b`, validated
+  uncompressed SRAM upload to 100%, and a 115200-baud COM15 `PING`/`PONG` UART
+  round trip from the programmed FPGA.
 
 ## 1.2.0 — 2026-07-27
 

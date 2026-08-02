@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Activity, BottomPanel, BuildEvent, BuildSummary, Diagnostic, OpenFile, ProjectNode, ThemeMode, WorkbenchView } from "../types";
+import type { Activity, BoardProfile, BottomPanel, BuildEvent, BuildSummary, Diagnostic, GitStatus, OpenFile, ProjectNode, ThemeMode, WorkbenchView } from "../types";
 
 interface WorkbenchState {
   ready: boolean;
@@ -19,6 +19,8 @@ interface WorkbenchState {
   diagnostics: Diagnostic[];
   build: BuildSummary | null;
   runningJob: string | null;
+  board: BoardProfile | null;
+  git: GitStatus | null;
   projectWizardOpen: boolean;
   setWorkspace: (root: string, project: string, projectPath: string, tree: ProjectNode[]) => void;
   setActivity: (activity: Activity) => void;
@@ -36,6 +38,8 @@ interface WorkbenchState {
   setDiagnostics: (items: Diagnostic[]) => void;
   setBuild: (summary: BuildSummary) => void;
   setRunningJob: (jobId: string | null) => void;
+  setBoard: (board: BoardProfile) => void;
+  setGit: (git: GitStatus) => void;
   openProjectWizard: () => void;
   closeProjectWizard: () => void;
 }
@@ -60,6 +64,8 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   diagnostics: [],
   build: null,
   runningJob: null,
+  board: null,
+  git: null,
   projectWizardOpen: false,
   setWorkspace: (root, project, projectPath, tree) => set({ root, project, projectPath, tree, ready: true, tabs: [], activePath: null, view: "welcome" }),
   setActivity: (activity) => set({ activity, sidebarOpen: true }),
@@ -93,6 +99,8 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   setDiagnostics: (diagnostics) => set({ diagnostics }),
   setBuild: (build) => set({ build }),
   setRunningJob: (runningJob) => set({ runningJob }),
+  setBoard: (board) => set({ board }),
+  setGit: (git) => set({ git }),
   openProjectWizard: () => set({ projectWizardOpen: true }),
   closeProjectWizard: () => set({ projectWizardOpen: false }),
 }));

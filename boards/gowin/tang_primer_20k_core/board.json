@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schema/board.schema.json",
+  "schemaVersion": 1,
+  "id": "tang_primer_20k_core",
+  "name": "Sipeed Tang Primer 20K Core",
+  "vendor": "Gowin",
+  "family": "GW2A-18C",
+  "yosysFamily": "gw2a",
+  "device": "GW2A-LV18PG256C8/I7",
+  "logicCells": 20736,
+  "clocks": [{ "name": "clk_27mhz", "frequencyHz": 27000000, "pin": "H11", "ioStandard": "LVCMOS33" }],
+  "programmer": { "backend": "openFPGALoader", "board": "tangprimer20k", "transport": "external-jtag" },
+  "constraints": ["constraints/primer20k_core.cst"],
+  "documentation": "README.md",
+  "capabilities": ["jtag", "sram", "flash", "expansion"]
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schema/board.schema.json",
+  "schemaVersion": 1,
+  "id": "tang_nano_9k",
+  "name": "Sipeed Tang Nano 9K",
+  "vendor": "Gowin",
+  "family": "GW1N-9C",
+  "yosysFamily": "gw1n",
+  "device": "GW1NR-LV9QN88PC6/I5",
+  "logicCells": 8640,
+  "clocks": [{ "name": "clk_27mhz", "frequencyHz": 27000000, "pin": "52", "ioStandard": "LVCMOS33" }],
+  "programmer": { "backend": "openFPGALoader", "board": "tangnano9k", "transport": "ftdi-mpsse" },
+  "constraints": ["constraints/tang_nano_9k.cst"],
+  "documentation": "README.md",
+  "capabilities": ["jtag", "sram", "flash", "uart", "leds", "buttons", "hdmi", "sd-card"]
+}

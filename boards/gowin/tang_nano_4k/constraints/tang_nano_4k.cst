@@ -1,0 +1,5 @@
+// Tang Nano 4K: onboard 27 MHz oscillator and active-low LED.
+IO_LOC  "clk_27mhz" 45;
+IO_PORT "clk_27mhz" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC  "led_n" 10;
+IO_PORT "led_n" IO_TYPE=LVCMOS33 DRIVE=8;

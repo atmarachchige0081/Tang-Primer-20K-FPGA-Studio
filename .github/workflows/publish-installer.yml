@@ -24,7 +24,7 @@ jobs:
             --arg url "$RELEASE_URL" \
             '{event_type:"studio_release", client_payload:{tag:$tag, release_url:$url}}' > dispatch.json
           GH_TOKEN="$INSTALLER_REPO_TOKEN" gh api --method POST \
-            repos/atmarachchige0081/TangPrimer-FPGA-Studio-Installer/dispatches \
+            repos/atmarachchige0081/Tang-FPGA-Studio-Installer/dispatches \
             --input dispatch.json
 
       - name: Confirm token-free scheduled fallback

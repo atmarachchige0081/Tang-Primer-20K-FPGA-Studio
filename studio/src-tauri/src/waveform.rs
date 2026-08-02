@@ -3,9 +3,9 @@ use crate::security::{canonical_workspace, safe_existing_path};
 use std::collections::HashMap;
 use std::fs;
 
-const MAX_VCD_BYTES: u64 = 128 * 1024 * 1024;
-const MAX_SIGNALS: usize = 2_000;
-const MAX_SAMPLES: usize = 250_000;
+const MAX_VCD_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_SIGNALS: usize = 1_000;
+const MAX_SAMPLES: usize = 100_000;
 
 pub fn read(root: &str, project: &str) -> Result<WaveformData, String> {
     let root = canonical_workspace(root)?;
@@ -14,7 +14,7 @@ pub fn read(root: &str, project: &str) -> Result<WaveformData, String> {
     let metadata = fs::metadata(&path)
         .map_err(|_| "No waveform exists yet. Run simulation first.".to_owned())?;
     if metadata.len() > MAX_VCD_BYTES {
-        return Err(format!("Waveform is {} MiB; the integrated viewer limit is 128 MiB. Open it in GTKWave instead.", metadata.len() / 1024 / 1024));
+        return Err(format!("Waveform is {} MiB; the responsive integrated-viewer limit is 64 MiB. Open it in GTKWave instead.", metadata.len() / 1024 / 1024));
     }
     let content =
         fs::read_to_string(&path).map_err(|error| format!("Cannot read waveform: {error}"))?;

@@ -49,6 +49,7 @@ try {
     Invoke-Checked python @('ide\fpga_ide.py', '--check', 'projects\_template')
     Invoke-Checked python @('ide\fpga_ide.py', '--check', 'projects\01_button_led_pwm')
     Invoke-Checked python @('ide\fpga_ide.py', '--check', 'projects\03_uart_terminal')
+    Invoke-Checked python @('ide\fpga_ide.py', '--check', 'projects\05_serial_command_console')
 
     $parseFailures = @()
     foreach ($script in Get-ChildItem -Path $workspace -Recurse -Filter '*.ps1' -File) {
@@ -74,7 +75,16 @@ try {
             'lint', '-Project', 'projects/03_uart_terminal')
         Invoke-Checked powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '.\fpga.ps1',
             'sim', '-Project', 'projects/03_uart_terminal', '-Testbench', 'sim/tb_top.sv', '-TestbenchTop', 'tb_top')
+        Invoke-Checked powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '.\fpga.ps1',
+            'lint', '-Project', 'projects/05_serial_command_console')
+        Invoke-Checked powershell @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '.\fpga.ps1',
+            'sim', '-Project', 'projects/05_serial_command_console', '-Testbench', 'sim/tb_top.sv', '-TestbenchTop', 'tb_top')
     }
+
+    Invoke-Checked npm @('--prefix', 'studio', 'run', 'check')
+    $cargo = Join-Path $env:USERPROFILE '.cargo\bin\cargo.exe'
+    if (-not (Test-Path -LiteralPath $cargo -PathType Leaf)) { throw 'Cargo is missing; run npm run desktop:doctor in studio.' }
+    Invoke-Checked $cargo @('test', '--manifest-path', 'studio/src-tauri/Cargo.toml', '--lib')
 
     Invoke-Checked git @('diff', '--check')
     Write-Host 'RELEASE CHECK PASSED' -ForegroundColor Green

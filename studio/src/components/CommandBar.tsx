@@ -5,7 +5,7 @@ import { useWorkbench } from "../store/workbench";
 interface Props { onRun: (action: BuildAction) => void; onSave: () => void; onStop: () => void }
 
 export function CommandBar({ onRun, onSave, onStop }: Props): React.JSX.Element {
-  const { runningJob, setView } = useWorkbench();
+  const { runningJob, setView, board } = useWorkbench();
   const nav = (view: WorkbenchView, title: string, Icon: typeof BarChart3) => <button className="tool-button" onClick={() => setView(view)} title={title}><Icon size={16} /><span>{title}</span></button>;
   return (
     <div className="commandbar">
@@ -25,7 +25,7 @@ export function CommandBar({ onRun, onSave, onStop }: Props): React.JSX.Element 
         {nav("hardware", "Hardware", CircuitBoard)}
         {nav("uart", "UART", Radio)}
       </div>
-      <div className="target-pill"><Cpu size={15} /><span>Tang Primer 20K</span><span className="online-dot" /><span>27 MHz</span></div>
+      <div className="target-pill"><Cpu size={15} /><span>{board?.name.replace("Sipeed ", "") ?? "Loading board"}</span><span className="online-dot" /><span>{board?.clocks[0] ? `${board.clocks[0].frequencyHz / 1_000_000} MHz` : "--"}</span></div>
     </div>
   );
 }

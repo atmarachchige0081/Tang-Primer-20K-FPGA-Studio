@@ -1,0 +1,15 @@
+[*]
+[*] FPGA Studio serial command console
+[dumpfile] build/waves.vcd
+[timestart] 0
+[treeopen] tb_top.
+[treeopen] tb_top.dut.
+tb_top.uart_rx
+tb_top.uart_tx
+tb_top.led_n[5:0]
+tb_top.dut.rx_valid
+tb_top.dut.rx_data[7:0]
+tb_top.dut.command_length[4:0]
+tb_top.dut.response_active
+tb_top.dut.response_id[3:0]
+tb_top.dut.tx_valid
