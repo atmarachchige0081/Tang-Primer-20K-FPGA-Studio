@@ -84,7 +84,11 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   }),
   updateFile: (path, content) => set((state) => ({ tabs: state.tabs.map((tab) => tab.path === path ? { ...tab, content } : tab) })),
   markSaved: (path) => set((state) => ({ tabs: state.tabs.map((tab) => tab.path === path ? { ...tab, savedContent: tab.content } : tab) })),
-  appendOutput: (event) => set((state) => ({ output: [...state.output.slice(-1999), event] })),
+  appendOutput: (event) => set((state) => {
+    const previous = state.output.at(-1);
+    if (previous && previous.jobId === event.jobId && previous.phase === event.phase && previous.stream === event.stream && previous.message === event.message) return state;
+    return { output: [...state.output.slice(-1999), event] };
+  }),
   clearOutput: () => set({ output: [] }),
   setDiagnostics: (diagnostics) => set({ diagnostics }),
   setBuild: (build) => set({ build }),

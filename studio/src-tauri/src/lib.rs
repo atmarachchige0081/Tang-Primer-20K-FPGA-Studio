@@ -1,4 +1,5 @@
 mod hardware;
+mod hdl;
 mod ip;
 mod models;
 mod netlist;
@@ -10,8 +11,8 @@ mod waveform;
 
 use hardware::SerialRegistry;
 use models::{
-    BuildAction, BuildHistoryEntry, BuildSummary, CommandResult, HdlPattern, NetlistGraph,
-    ProjectTemplate, SerialDevice, WaveformData, WorkspaceSnapshot,
+    BuildAction, BuildHistoryEntry, BuildSummary, CommandResult, HdlIndex, HdlPattern,
+    NetlistGraph, ProjectTemplate, SerialDevice, WaveformData, WorkspaceSnapshot,
 };
 use runner::JobRegistry;
 use tauri::{AppHandle, State};
@@ -39,6 +40,11 @@ fn list_project_templates(root: String) -> Result<Vec<ProjectTemplate>, String> 
 #[tauri::command]
 fn list_hdl_patterns(root: String) -> Result<Vec<HdlPattern>, String> {
     ip::patterns(&root)
+}
+
+#[tauri::command]
+fn read_hdl_index(root: String, project: String) -> Result<HdlIndex, String> {
+    hdl::index(&root, &project)
 }
 
 #[tauri::command]
@@ -138,6 +144,7 @@ pub fn run() {
             write_text_file,
             list_project_templates,
             list_hdl_patterns,
+            read_hdl_index,
             create_project,
             run_fpga_command,
             cancel_job,

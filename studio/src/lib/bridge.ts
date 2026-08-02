@@ -6,6 +6,7 @@ import type {
   BuildHistoryEntry,
   BuildSummary,
   CommandResult,
+  HdlIndex,
   HdlPattern,
   NetlistGraph,
   ProjectNode,
@@ -86,6 +87,16 @@ export const bridge = {
     ];
   },
 
+  async hdlIndex(root: string, project: string): Promise<HdlIndex> {
+    if (isDesktop()) return invoke<HdlIndex>("read_hdl_index", { root, project });
+    return { top: "top", files: ["rtl/top.sv"], symbols: [
+      { name: "top", kind: "module", file: "rtl/top.sv", line: 1, column: 8, detail: "SystemVerilog module" },
+      { name: "clk", kind: "input", file: "rtl/top.sv", line: 2, column: 16, detail: "input declaration" },
+      { name: "led", kind: "output", file: "rtl/top.sv", line: 4, column: 16, detail: "output declaration" },
+      { name: "counter", kind: "logic", file: "rtl/top.sv", line: 6, column: 16, detail: "logic declaration" },
+    ], diagnostics: [] };
+  },
+
   async createProject(root: string, name: string, templateId: string, displayName: string): Promise<WorkspaceSnapshot> {
     if (isDesktop()) return invoke<WorkspaceSnapshot>("create_project", { root, name, templateId, displayName });
     return { root, project: displayName || name, projectPath: `projects/${name}`, tree: demoTree, recentProjects: [`projects/${name}`] };
@@ -94,7 +105,7 @@ export const bridge = {
   async run(root: string, project: string, action: BuildAction, jobId: string): Promise<CommandResult> {
     if (isDesktop()) return invoke<CommandResult>("run_fpga_command", { root, project, action, jobId });
     await new Promise((resolve) => window.setTimeout(resolve, 500));
-    return { jobId, action, success: true, exitCode: 0, durationMs: 500, diagnostics: [] };
+    return { jobId, action, success: true, exitCode: 0, durationMs: 500, diagnostics: [], failureMessage: undefined };
   },
 
   async cancel(jobId: string): Promise<boolean> {

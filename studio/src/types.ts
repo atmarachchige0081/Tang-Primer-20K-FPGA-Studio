@@ -43,6 +43,7 @@ export interface CommandResult {
   exitCode: number | null;
   durationMs: number;
   diagnostics: Diagnostic[];
+  failureMessage?: string;
 }
 
 export interface WorkspaceSnapshot {
@@ -167,4 +168,20 @@ export interface HdlPattern {
   code: string;
   aliases: string[];
   synthesizable: boolean;
+}
+
+export interface HdlSymbol {
+  name: string;
+  kind: string;
+  file: string;
+  line: number;
+  column: number;
+  detail: string;
+}
+
+export interface HdlIndex {
+  top: string;
+  files: string[];
+  symbols: HdlSymbol[];
+  diagnostics: Diagnostic[];
 }

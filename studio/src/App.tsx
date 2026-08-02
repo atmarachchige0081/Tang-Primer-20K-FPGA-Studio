@@ -63,7 +63,12 @@ function Workbench(): React.JSX.Element {
       store.appendOutput({ jobId: "startup", phase: "workspace", stream: "stderr", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() });
     });
     let unlisten: (() => void) | undefined;
-    void bridge.onBuildEvent((event: BuildEvent) => store.appendOutput(event)).then((stop) => { unlisten = stop; });
+    void bridge.onBuildEvent((event: BuildEvent) => store.appendOutput(event)).then((stop) => {
+      if (disposed) stop();
+      else unlisten = stop;
+    }).catch((error: unknown) => {
+      if (!disposed) store.appendOutput({ jobId: "startup", phase: "events", stream: "stderr", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() });
+    });
     return () => { disposed = true; unlisten?.(); };
   }, []);
 
@@ -76,7 +81,7 @@ function Workbench(): React.JSX.Element {
     try {
       const result = await bridge.run(store.root, store.projectPath, action, optimisticId);
       store.setDiagnostics(result.diagnostics);
-      store.appendOutput({ jobId: result.jobId, phase: action, stream: result.success ? "system" : "stderr", message: result.success ? `Completed in ${(result.durationMs / 1000).toFixed(1)}s` : `Failed with exit code ${result.exitCode ?? "unknown"}`, timestamp: new Date().toISOString() });
+      store.appendOutput({ jobId: result.jobId, phase: action, stream: result.success ? "system" : "stderr", message: result.success ? `Completed in ${(result.durationMs / 1000).toFixed(1)}s` : result.failureMessage ?? `${action} did not complete. Open Problems for details.`, timestamp: new Date().toISOString() });
       store.setBuild(await bridge.buildSummary(store.root, store.projectPath));
     } catch (error) {
       store.appendOutput({ jobId: optimisticId, phase: action, stream: "stderr", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() });

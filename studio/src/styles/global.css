@@ -323,6 +323,10 @@ kbd { padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; backg
 .dock-tabs .dock-icon { padding: 0 7px; }
 .count-badge { min-width: 16px; padding: 1px 4px; border-radius: 8px; background: var(--surface-hover); font-size: 9px; text-align: center; }
 .dock-content { height: calc(100% - 33px); overflow: auto; }
+.output-view { height: 100%; display: flex; flex-direction: column; }
+.output-options { min-height: 27px; display: flex; align-items: center; gap: 10px; padding: 0 9px; border-bottom: 1px solid var(--line-subtle); color: var(--text-muted); font-size: 9px; }
+.output-options button { margin-left: auto; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface-raised); color: var(--text-soft); font-size: 9px; }
+.output-view .output-lines { min-height: 0; flex: 1; overflow: auto; }
 .empty-dock { height: 100%; gap: 8px; }
 .empty-dock svg { color: var(--green); }
 .output-lines { padding: 5px 9px; font: 10px/1.65 "JetBrains Mono", monospace; }

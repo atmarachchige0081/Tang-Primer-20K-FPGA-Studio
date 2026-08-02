@@ -1,5 +1,7 @@
 use crate::models::{NodeKind, ProjectNode, ProjectTemplate, TemplateCatalog, WorkspaceSnapshot};
-use crate::security::{canonical_workspace, safe_existing_path, safe_file_path};
+use crate::security::{
+    canonical_workspace, child_process_path, safe_existing_path, safe_file_path,
+};
 use chrono::Utc;
 use regex::Regex;
 use std::fs;
@@ -42,7 +44,7 @@ pub fn snapshot() -> Result<WorkspaceSnapshot, String> {
         .unwrap_or("FPGA project")
         .to_owned();
     Ok(WorkspaceSnapshot {
-        root: root.to_string_lossy().into_owned(),
+        root: child_process_path(&root).to_string_lossy().into_owned(),
         project,
         project_path: ".".into(),
         tree,
@@ -152,7 +154,7 @@ pub fn create_project(
     }
     let mut seen = 0;
     Ok(WorkspaceSnapshot {
-        root: root.to_string_lossy().into_owned(),
+        root: child_process_path(&root).to_string_lossy().into_owned(),
         project: if display_name.trim().is_empty() {
             project_name.to_owned()
         } else {

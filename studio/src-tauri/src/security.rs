@@ -20,6 +20,23 @@ pub fn canonical_workspace(root: &str) -> Result<PathBuf, String> {
     Ok(root)
 }
 
+/// Convert Rust's Windows verbatim path into a form accepted by legacy child
+/// processes such as Windows PowerShell 5.1. Keep canonical paths internally
+/// for boundary checks, but never pass a `\\?\` path to a script host.
+pub fn child_process_path(path: &Path) -> PathBuf {
+    #[cfg(windows)]
+    {
+        let value = path.to_string_lossy();
+        if let Some(network) = value.strip_prefix(r"\\?\UNC\") {
+            return PathBuf::from(format!(r"\\{network}"));
+        }
+        if let Some(local) = value.strip_prefix(r"\\?\") {
+            return PathBuf::from(local);
+        }
+    }
+    path.to_path_buf()
+}
+
 pub fn safe_existing_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
     validate_relative(relative)?;
     let candidate = std::fs::canonicalize(root.join(relative))
@@ -74,7 +91,8 @@ fn validate_relative(relative: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_relative;
+    use super::{child_process_path, validate_relative};
+    use std::path::Path;
 
     #[test]
     fn relative_paths_are_accepted() {
@@ -87,5 +105,42 @@ mod tests {
         assert!(validate_relative("../outside.sv").is_err());
         assert!(validate_relative("C:\\outside.sv").is_err());
         assert!(validate_relative("/outside.sv").is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn verbatim_windows_paths_are_safe_for_legacy_child_processes() {
+        assert_eq!(
+            child_process_path(Path::new(r"\\?\C:\Users\Example\FPGA")),
+            Path::new(r"C:\Users\Example\FPGA")
+        );
+        assert_eq!(
+            child_process_path(Path::new(r"\\?\UNC\server\share\FPGA")),
+            Path::new(r"\\server\share\FPGA")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn normalized_script_path_preserves_powershell_script_root() {
+        let directory = std::env::temp_dir().join(format!(
+            "fpga studio powershell path {}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&directory).expect("temporary directory");
+        let script = directory.join("script-root-check.ps1");
+        std::fs::write(
+            &script,
+            "if (-not $PSScriptRoot) { exit 7 }\nif (-not (Test-Path -LiteralPath $PSScriptRoot -PathType Container)) { exit 8 }\n",
+        )
+        .expect("test script");
+        let canonical = std::fs::canonicalize(&script).expect("canonical script");
+        let status = std::process::Command::new("powershell.exe")
+            .args(["-NoLogo", "-NoProfile", "-NonInteractive", "-File"])
+            .arg(child_process_path(&canonical))
+            .status()
+            .expect("PowerShell should start");
+        assert!(status.success());
+        std::fs::remove_dir_all(directory).expect("cleanup");
     }
 }

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CheckCircle2, ChevronDown, ChevronUp, CircleAlert, CircleX, Copy, Eraser, Info, TerminalSquare } from "lucide-react";
 import { useWorkbench } from "../store/workbench";
 import type { BottomPanel } from "../types";
@@ -30,8 +31,12 @@ function Problems(): React.JSX.Element {
 
 function Output(): React.JSX.Element {
   const output = useWorkbench((state) => state.output);
+  const [technical, setTechnical] = useState(false);
   if (!output.length) return <div className="empty-dock"><TerminalSquare size={18}/><span>Build and tool output will appear here.</span></div>;
-  return <div className="output-lines" aria-live="polite">{output.map((event, index) => <div className={event.stream} key={`${event.timestamp}-${index}`}><span>{new Date(event.timestamp).toLocaleTimeString([], { hour12: false })}</span><strong>{event.phase}</strong><code>{event.message}</code></div>)}</div>;
+  const isTechnical = (message: string) => /^\s*(?:At .+:\d+ char:\d+|\+|~+|CategoryInfo|FullyQualifiedErrorId)/.test(message) || !message.trim();
+  const hidden = output.filter((event) => isTechnical(event.message)).length;
+  const visible = technical ? output : output.filter((event) => !isTechnical(event.message));
+  return <div className="output-view"><div className="output-options"><span>{technical ? "Complete tool output" : "Beginner-friendly output"}</span>{hidden > 0 && <button onClick={() => setTechnical((value) => !value)}>{technical ? "Hide technical details" : `Show ${hidden} technical detail${hidden === 1 ? "" : "s"}`}</button>}</div><div className="output-lines" aria-live="polite">{visible.map((event, index) => <div className={event.stream} key={`${event.timestamp}-${index}`}><span>{new Date(event.timestamp).toLocaleTimeString([], { hour12: false })}</span><strong>{event.phase}</strong><code>{event.message}</code></div>)}</div></div>;
 }
 
 function Terminal(): React.JSX.Element {

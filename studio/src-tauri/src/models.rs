@@ -68,6 +68,26 @@ pub struct PatternCatalog {
     pub patterns: Vec<HdlPattern>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HdlIndex {
+    pub top: String,
+    pub files: Vec<String>,
+    pub symbols: Vec<HdlSymbol>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HdlSymbol {
+    pub name: String,
+    pub kind: String,
+    pub file: String,
+    pub line: u32,
+    pub column: u32,
+    pub detail: String,
+}
+
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum BuildAction {
@@ -134,6 +154,8 @@ pub struct CommandResult {
     pub exit_code: Option<i32>,
     pub duration_ms: u128,
     pub diagnostics: Vec<Diagnostic>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_message: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

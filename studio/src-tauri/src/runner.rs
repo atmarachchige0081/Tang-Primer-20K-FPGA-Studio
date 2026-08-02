@@ -1,6 +1,6 @@
 use crate::models::{BuildAction, BuildEvent, CommandResult, Diagnostic, DiagnosticSeverity};
 use crate::reports;
-use crate::security::{canonical_workspace, safe_existing_path};
+use crate::security::{canonical_workspace, child_process_path, safe_existing_path};
 use chrono::Utc;
 use regex::Regex;
 use std::collections::HashMap;
@@ -78,6 +78,7 @@ fn run_blocking(
     job_id: String,
 ) -> Result<CommandResult, String> {
     let workspace = canonical_workspace(&root)?;
+    let process_workspace = child_process_path(&workspace);
     let project_dir = safe_existing_path(&workspace, &project)?;
     if !project_dir.is_dir() || !project_dir.join("fpga.config.psd1").is_file() {
         return Err("The active project has no fpga.config.psd1".into());
@@ -101,11 +102,11 @@ fn run_blocking(
         .arg("-ExecutionPolicy")
         .arg("Bypass")
         .arg("-File")
-        .arg(workspace.join("fpga.ps1"))
+        .arg(process_workspace.join("fpga.ps1"))
         .arg(action.as_str())
         .arg("-Project")
         .arg(&project)
-        .current_dir(&workspace)
+        .current_dir(&process_workspace)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     #[cfg(windows)]
@@ -184,8 +185,9 @@ fn run_blocking(
     let diagnostics = parse_diagnostics(&captured);
     let success = exit_status.success() && !cancellation.load(Ordering::SeqCst);
     let duration_ms = started.elapsed().as_millis();
+    let failure_message = (!success).then(|| friendly_failure(action, &captured));
     if let Err(error) = reports::record_history(
-        &workspace.to_string_lossy(),
+        &process_workspace.to_string_lossy(),
         &project,
         action,
         success,
@@ -206,6 +208,7 @@ fn run_blocking(
         exit_code: exit_status.code(),
         duration_ms,
         diagnostics,
+        failure_message,
     })
 }
 
@@ -239,6 +242,15 @@ fn parse_diagnostics(lines: &[String]) -> Vec<Diagnostic> {
     lines
         .iter()
         .filter_map(|line| {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("At ")
+                || trimmed.starts_with('+')
+                || trimmed.starts_with('~')
+                || trimmed.starts_with("CategoryInfo")
+                || trimmed.starts_with("FullyQualifiedErrorId")
+            {
+                return None;
+            }
             let lower = line.to_ascii_lowercase();
             let severity = if lower.contains("error") || lower.contains("%fatal") {
                 DiagnosticSeverity::Error
@@ -276,9 +288,46 @@ fn parse_diagnostics(lines: &[String]) -> Vec<Diagnostic> {
         .collect()
 }
 
+fn friendly_failure(action: BuildAction, lines: &[String]) -> String {
+    let combined = lines.join("\n").to_ascii_lowercase();
+    if combined.contains("usb_open() failed") || combined.contains("unable to open ftdi device") {
+        return "The FPGA programmer is connected but Windows cannot open JTAG Interface 0. Install WinUSB on Interface 0 only, leave Interface 1 unchanged, then run Detect JTAG again.".into();
+    }
+    if combined.contains("oss cad suite is not installed") || combined.contains("environment.ps1") {
+        return "The FPGA toolchain is not ready. Run the setup command, then Hardware Doctor, before trying again.".into();
+    }
+    if combined.contains("value of argument \"drive\" is null")
+        || combined.contains("psargumentnullexception")
+    {
+        return "FPGA Studio could not pass the workspace path to Windows PowerShell. Restart the updated application and retry; your source files were not changed.".into();
+    }
+    if combined.contains("timing") && (combined.contains("failed") || combined.contains("error")) {
+        return "Implementation did not meet the requested timing or placement constraints. Open Problems for the first actionable tool message.".into();
+    }
+    let useful = lines.iter().find_map(|line| {
+        let trimmed = line.trim();
+        let lower = trimmed.to_ascii_lowercase();
+        let technical = trimmed.is_empty()
+            || trimmed.starts_with("At ")
+            || trimmed.starts_with('+')
+            || trimmed.starts_with('~')
+            || trimmed.starts_with("CategoryInfo")
+            || trimmed.starts_with("FullyQualifiedErrorId");
+        (!technical && (lower.contains("error") || lower.contains("failed")))
+            .then(|| trimmed.to_owned())
+    });
+    useful.unwrap_or_else(|| {
+        format!(
+            "{} did not complete. Open Problems for the actionable message or enable Technical details for the full tool log.",
+            action.as_str().to_ascii_uppercase()
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::parse_diagnostics;
+    use super::{friendly_failure, parse_diagnostics};
+    use crate::models::BuildAction;
     use crate::models::DiagnosticSeverity;
 
     #[test]
@@ -287,5 +336,20 @@ mod tests {
         assert_eq!(values.len(), 1);
         assert!(matches!(values[0].severity, DiagnosticSeverity::Warning));
         assert_eq!(values[0].line, Some(18));
+    }
+
+    #[test]
+    fn hides_powershell_stack_noise_and_explains_jtag_access() {
+        let values = parse_diagnostics(&[
+            "At C:\\fpga.ps1:25 char:5".into(),
+            "+ CategoryInfo : InvalidArgument".into(),
+            "FullyQualifiedErrorId : ArgumentNull".into(),
+        ]);
+        assert!(values.is_empty());
+        assert!(friendly_failure(
+            BuildAction::Detect,
+            &["unable to open ftdi device: -4 (usb_open() failed)".into()]
+        )
+        .contains("Interface 0"));
     }
 }

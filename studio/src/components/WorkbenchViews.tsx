@@ -71,7 +71,7 @@ export function NetlistView(): React.JSX.Element {
     setBottomPanel("output");
     try {
       const result = await bridge.run(root, project, "build", jobId);
-      appendOutput({ jobId, phase: "build", stream: result.success ? "system" : "stderr", message: result.success ? "Build passed; netlist reloaded." : `Build failed with exit code ${result.exitCode ?? "unknown"}.`, timestamp: new Date().toISOString() });
+      appendOutput({ jobId, phase: "build", stream: result.success ? "system" : "stderr", message: result.success ? "Build passed; netlist reloaded." : result.failureMessage ?? "Build did not complete. Open Problems for details.", timestamp: new Date().toISOString() });
       if (result.success) await load();
     } catch (reason) {
       appendOutput({ jobId, phase: "build", stream: "stderr", message: reason instanceof Error ? reason.message : String(reason), timestamp: new Date().toISOString() });
@@ -172,7 +172,7 @@ export function WaveformView(): React.JSX.Element {
     setBottomPanel("output");
     try {
       const result = await bridge.run(root, project, "sim", jobId);
-      appendOutput({ jobId, phase: "sim", stream: result.success ? "system" : "stderr", message: result.success ? "Simulation passed; waveform reloaded." : `Simulation failed with exit code ${result.exitCode ?? "unknown"}.`, timestamp: new Date().toISOString() });
+      appendOutput({ jobId, phase: "sim", stream: result.success ? "system" : "stderr", message: result.success ? "Simulation passed; waveform reloaded." : result.failureMessage ?? "Simulation did not complete. Open Problems for details.", timestamp: new Date().toISOString() });
       if (result.success) await load();
     } catch (reason) {
       appendOutput({ jobId, phase: "sim", stream: "stderr", message: reason instanceof Error ? reason.message : String(reason), timestamp: new Date().toISOString() });
@@ -241,7 +241,7 @@ export function UartView(): React.JSX.Element {
     void bridge.onSerialEvent((event) => {
       const text = event.kind === "data" ? new TextDecoder().decode(Uint8Array.from(event.data)) : event.message ?? "Serial event";
       setSessions((current) => current.map((session) => session.id === event.sessionId ? { ...session, connected: event.kind === "error" ? false : session.connected, lines: [...session.lines.slice(-999), { time: new Date(event.timestamp).toLocaleTimeString(), direction: event.kind === "data" ? "rx" : event.kind, text }] } : session));
-    }).then((stop) => { unlisten = stop; });
+    }).then((stop) => { if (disposed) stop(); else unlisten = stop; }).catch(() => undefined);
     return () => { disposed = true; unlisten?.(); for (const session of sessionsRef.current.filter((item) => item.connected)) void bridge.disconnectSerial(session.id); };
   }, []);
   const active = sessions.find((session) => session.id === activeId) ?? null;
