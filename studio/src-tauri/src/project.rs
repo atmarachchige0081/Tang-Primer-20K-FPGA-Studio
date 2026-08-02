@@ -7,6 +7,13 @@ use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Default, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceState {
+    active_project: String,
+    recent_projects: Vec<String>,
+}
+
 const IGNORED_DIRECTORIES: &[&str] = &[
     ".git",
     ".fpga-studio",
@@ -36,19 +43,41 @@ pub fn discover_workspace() -> Result<PathBuf, String> {
 
 pub fn snapshot() -> Result<WorkspaceSnapshot, String> {
     let root = discover_workspace()?;
+    let state = read_workspace_state(&root);
+    let active = if state.active_project.is_empty() {
+        "."
+    } else {
+        state.active_project.as_str()
+    };
+    snapshot_for(&root, active, state.recent_projects)
+}
+
+fn snapshot_for(
+    root: &Path,
+    project_path: &str,
+    recent_projects: Vec<String>,
+) -> Result<WorkspaceSnapshot, String> {
+    let directory =
+        safe_existing_path(root, project_path).or_else(|_| safe_existing_path(root, "."))?;
+    let relative = directory
+        .strip_prefix(root)
+        .unwrap_or(Path::new("."))
+        .to_string_lossy()
+        .replace('\\', "/");
+    let project_path = if relative.is_empty() {
+        ".".to_owned()
+    } else {
+        relative
+    };
     let mut seen = 0;
-    let tree = list_directory(&root, &root, &mut seen)?;
-    let project = root
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("FPGA project")
-        .to_owned();
+    let tree = list_directory(root, &directory, &mut seen)?;
+    let project = project_display_name(&directory);
     Ok(WorkspaceSnapshot {
-        root: child_process_path(&root).to_string_lossy().into_owned(),
+        root: child_process_path(root).to_string_lossy().into_owned(),
         project,
-        project_path: ".".into(),
+        project_path,
         tree,
-        recent_projects: Vec::new(),
+        recent_projects,
     })
 }
 
@@ -152,18 +181,70 @@ pub fn create_project(
         let _ = fs::remove_dir_all(&target);
         return Err(format!("Project creation was rolled back: {error}"));
     }
-    let mut seen = 0;
-    Ok(WorkspaceSnapshot {
-        root: child_process_path(&root).to_string_lossy().into_owned(),
-        project: if display_name.trim().is_empty() {
-            project_name.to_owned()
-        } else {
-            display_name.trim().to_owned()
-        },
-        project_path: format!("projects/{project_name}"),
-        tree: list_directory(&root, &target, &mut seen)?,
-        recent_projects: vec![format!("projects/{project_name}")],
-    })
+    let project_path = format!("projects/{project_name}");
+    let mut state = read_workspace_state(&root);
+    state.recent_projects.retain(|item| item != &project_path);
+    state.recent_projects.insert(0, project_path.clone());
+    state.recent_projects.truncate(12);
+    state.active_project = project_path.clone();
+    persist_workspace_state(&root, &state)?;
+    snapshot_for(&root, &project_path, state.recent_projects)
+}
+
+fn project_display_name(directory: &Path) -> String {
+    let manifest = directory.join("fpga.project.json");
+    if let Ok(content) = fs::read(&manifest) {
+        if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&content) {
+            if let Some(name) = value.get("name").and_then(serde_json::Value::as_str) {
+                if !name.trim().is_empty() {
+                    return name.trim().to_owned();
+                }
+            }
+        }
+    }
+    directory
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("FPGA project")
+        .to_owned()
+}
+
+fn read_workspace_state(root: &Path) -> WorkspaceState {
+    let path = root.join(".fpga-studio/workspace-state.json");
+    fs::read(&path)
+        .ok()
+        .and_then(|content| serde_json::from_slice(&content).ok())
+        .unwrap_or_default()
+}
+
+fn persist_workspace_state(root: &Path, state: &WorkspaceState) -> Result<(), String> {
+    let directory = root.join(".fpga-studio");
+    fs::create_dir_all(&directory)
+        .map_err(|error| format!("Cannot create local workspace settings: {error}"))?;
+    let path = directory.join("workspace-state.json");
+    let temporary = directory.join("workspace-state.json.tmp");
+    let backup = directory.join("workspace-state.json.bak");
+    fs::write(
+        &temporary,
+        serde_json::to_vec_pretty(state)
+            .map_err(|error| format!("Cannot serialize workspace settings: {error}"))?,
+    )
+    .map_err(|error| format!("Cannot write workspace settings: {error}"))?;
+    if path.is_file() {
+        let _ = fs::remove_file(&backup);
+        fs::rename(&path, &backup)
+            .map_err(|error| format!("Cannot prepare workspace settings update: {error}"))?;
+    }
+    if let Err(error) = fs::rename(&temporary, &path) {
+        if backup.is_file() {
+            let _ = fs::rename(&backup, &path);
+        }
+        return Err(format!("Cannot publish workspace settings: {error}"));
+    }
+    if backup.is_file() {
+        let _ = fs::remove_file(backup);
+    }
+    Ok(())
 }
 
 fn validate_template_source(root: &Path, relative: &str) -> Result<PathBuf, String> {
@@ -351,6 +432,8 @@ mod tests {
             .expect("project creation should pass");
         assert_eq!(result.project_path, "projects/04_demo");
         assert!(root.join("projects/04_demo/fpga.project.json").is_file());
+        assert!(root.join(".fpga-studio/workspace-state.json").is_file());
+        assert_eq!(result.project, "Demo project");
         assert_eq!(
             fs::read_to_string(root.join("projects/04_demo/rtl/top.sv")).expect("created source"),
             "module top; endmodule\n"
