@@ -9,3 +9,15 @@ obj_dir/
 __pycache__/
 *.py[cod]
 .fpga-studio/
+studio/node_modules/
+studio/dist/
+studio/src-tauri/target/
+studio/src-tauri/gen/
+*.tsbuildinfo
+studio/src-tauri/icons/android/
+studio/src-tauri/icons/ios/
+studio/src-tauri/icons/Square*.png
+studio/src-tauri/icons/StoreLogo.png
+studio/src-tauri/icons/icon.icns
+studio/src-tauri/icons/icon.png
+studio/src-tauri/icons/64x64.png

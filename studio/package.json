@@ -1,0 +1,44 @@
+{
+  "name": "tang-primer-fpga-studio",
+  "private": true,
+  "version": "2.0.0-alpha.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run build && npm run test",
+    "tauri": "tauri",
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "4.7.0",
+    "@tauri-apps/api": "2.11.1",
+    "@xyflow/react": "12.11.2",
+    "lucide-react": "1.28.0",
+    "monaco-editor": "0.56.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "recharts": "3.10.1",
+    "zustand": "5.0.14"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4",
+    "@tauri-apps/cli-win32-x64-msvc": "2.11.4",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.5",
+    "jsdom": "30.0.1",
+    "typescript": "6.0.2",
+    "vite": "8.2.0",
+    "vitest": "4.1.10"
+  },
+  "overrides": {
+    "dompurify": "3.4.12"
+  }
+}
