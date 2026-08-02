@@ -13,14 +13,14 @@ module vga_timing #(
     localparam integer V_TOTAL = V_ACTIVE + V_FRONT + V_SYNC + V_BACK;
     localparam integer H_WIDTH = $clog2(H_TOTAL);
     localparam integer V_WIDTH = $clog2(V_TOTAL);
-    localparam logic [H_WIDTH-1:0] H_LAST = H_TOTAL - 1;
-    localparam logic [V_WIDTH-1:0] V_LAST = V_TOTAL - 1;
-    localparam logic [H_WIDTH-1:0] H_ACTIVE_LIMIT = H_ACTIVE;
-    localparam logic [V_WIDTH-1:0] V_ACTIVE_LIMIT = V_ACTIVE;
-    localparam logic [H_WIDTH-1:0] H_SYNC_START = H_ACTIVE + H_FRONT;
-    localparam logic [H_WIDTH-1:0] H_SYNC_END = H_ACTIVE + H_FRONT + H_SYNC;
-    localparam logic [V_WIDTH-1:0] V_SYNC_START = V_ACTIVE + V_FRONT;
-    localparam logic [V_WIDTH-1:0] V_SYNC_END = V_ACTIVE + V_FRONT + V_SYNC;
+    localparam logic [H_WIDTH-1:0] H_LAST = H_WIDTH'(H_TOTAL - 1);
+    localparam logic [V_WIDTH-1:0] V_LAST = V_WIDTH'(V_TOTAL - 1);
+    localparam logic [H_WIDTH-1:0] H_ACTIVE_LIMIT = H_WIDTH'(H_ACTIVE);
+    localparam logic [V_WIDTH-1:0] V_ACTIVE_LIMIT = V_WIDTH'(V_ACTIVE);
+    localparam logic [H_WIDTH-1:0] H_SYNC_START = H_WIDTH'(H_ACTIVE + H_FRONT);
+    localparam logic [H_WIDTH-1:0] H_SYNC_END = H_WIDTH'(H_ACTIVE + H_FRONT + H_SYNC);
+    localparam logic [V_WIDTH-1:0] V_SYNC_START = V_WIDTH'(V_ACTIVE + V_FRONT);
+    localparam logic [V_WIDTH-1:0] V_SYNC_END = V_WIDTH'(V_ACTIVE + V_FRONT + V_SYNC);
     always_ff @(posedge pixel_clk) begin
         if (!rst_n) begin x <= '0; y <= '0; end
         else if (x == H_LAST) begin x <= '0; y <= (y == V_LAST) ? '0 : y + 1'b1; end
