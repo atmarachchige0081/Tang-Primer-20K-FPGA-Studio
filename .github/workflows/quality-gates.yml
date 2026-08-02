@@ -12,6 +12,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  studio-v2:
+    name: React, Tauri, Rust, and dependency safety
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: studio/package-lock.json
+      - name: Install stable Rust with required components
+        shell: pwsh
+        run: |
+          rustup update stable
+          rustup default stable
+          rustup component add rustfmt clippy
+      - name: Install locked frontend dependencies
+        working-directory: studio
+        run: npm ci
+      - name: Build and test the frontend
+        working-directory: studio
+        run: npm run check
+      - name: Audit production dependencies
+        working-directory: studio
+        run: npm audit --audit-level=high
+      - name: Enforce Rust formatting
+        working-directory: studio/src-tauri
+        run: cargo fmt --check
+      - name: Enforce warning-free Rust
+        working-directory: studio/src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Run native unit and regression tests
+        working-directory: studio/src-tauri
+        run: cargo test
+
   application:
     name: Python and project intelligence
     runs-on: windows-latest
@@ -67,3 +102,16 @@ jobs:
           iverilog -g2012 -Wall -s tb_top -o build/tb_top.vvp \
             rtl/top.sv rtl/uart_rx.sv rtl/uart_tx.sv sim/tb_top.sv
           vvp build/tb_top.vvp
+      - name: Verify packaged project templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          for project in spi_controller vga_timing riscv_scaffold; do
+            echo "Verifying templates/${project}"
+            pushd "templates/${project}" >/dev/null
+            mkdir -p build
+            verilator --lint-only --timing -Wall -Wno-DECLFILENAME --top-module top rtl/*.sv
+            iverilog -g2012 -Wall -s tb_top -o build/tb_top.vvp rtl/*.sv sim/tb_top.sv
+            vvp build/tb_top.vvp
+            popd >/dev/null
+          done
