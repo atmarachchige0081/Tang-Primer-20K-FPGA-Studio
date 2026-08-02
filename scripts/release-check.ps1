@@ -23,11 +23,10 @@ try {
         'LICENSE', 'SECURITY.md', 'CONTRIBUTING.md', 'CHANGELOG.md', 'INSTALL.md',
         'docs\DEPLOYMENT.md', 'docs\images\studio-main.png',
         'docs\images\studio-insights.png', 'docs\images\studio-command-palette.png',
-        'docs\images\studio-pattern-library.png', 'docs\images\studio-pin-inspector.png',
-        'docs\images\studio-verification-center.png', 'docs\images\studio-hardware-setup.png',
-        'docs\images\studio-uart-terminal.png', 'docs\images\studio-first-project-tutorial.png',
+        'docs\images\studio-waveform.png', 'docs\images\studio-hardware-setup.png',
+        'docs\images\studio-uart-terminal.png',
         'docs\images\studio-netlist-viewer.png', 'docs\images\studio-release-notes.png',
-        'docs\images\studio-main-light.png', 'docs\images\studio-pattern-library-light.png'
+        'docs\images\studio-main-light.png'
     )
     $missing = @($requiredFiles | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
     if ($missing.Count) {

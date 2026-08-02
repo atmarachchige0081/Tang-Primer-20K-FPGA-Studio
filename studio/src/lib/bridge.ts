@@ -109,7 +109,7 @@ export const bridge = {
 
   async gitStatus(root: string): Promise<GitStatus> {
     if (isDesktop()) return invoke<GitStatus>("read_git_status", { root });
-    return { available: true, repository: true, executable: "git", version: "git version (preview)", branch: "develop/v2.0.0", upstream: "origin/develop/v2.0.0", ahead: 0, behind: 0, changes: [], message: "Working tree clean" };
+    return { available: true, repository: true, executable: "git", version: "git version (preview)", branch: "main", upstream: "origin/main", ahead: 0, behind: 0, changes: [], message: "Working tree clean" };
   },
 
   async plugins(root: string): Promise<PluginInfo[]> {

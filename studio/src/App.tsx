@@ -27,6 +27,7 @@ const viewComponents: Record<Exclude<WorkbenchView, "editor">, React.ComponentTy
 function Workbench(): React.JSX.Element {
   const store = useWorkbench();
   const runLock = useRef(false);
+  const documentationCaptureApplied = useRef(false);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: light)");
@@ -77,6 +78,31 @@ function Workbench(): React.JSX.Element {
     });
     return () => { disposed = true; unlisten?.(); };
   }, []);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !store.ready || documentationCaptureApplied.current) return;
+    const parameters = new URLSearchParams(window.location.search);
+    const capture = parameters.get("capture");
+    if (!capture) return;
+    documentationCaptureApplied.current = true;
+    const requestedTheme = parameters.get("theme");
+    if (requestedTheme === "dark" || requestedTheme === "light") store.setTheme(requestedTheme);
+    const captureViews: Partial<Record<string, WorkbenchView>> = {
+      welcome: "welcome",
+      dashboard: "dashboard",
+      waveform: "waveform",
+      netlist: "netlist",
+      hardware: "hardware",
+      uart: "uart",
+      launcher: "welcome",
+      "release-notes": "welcome",
+    };
+    const requestedView = captureViews[capture];
+    if (requestedView) store.setView(requestedView);
+    if (capture === "launcher") {
+      window.setTimeout(() => window.dispatchEvent(new Event("fpga-studio:command-center")), 150);
+    }
+  }, [store.ready]);
 
   const run = useCallback(async (action: BuildAction) => {
     if (store.runningJob || runLock.current) return;

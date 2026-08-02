@@ -28,6 +28,7 @@ Run this before distributing a checkout or publishing a tag:
 .\scripts\release-check.ps1
 .\scripts\stress-test.ps1 -Rounds 3 -Parallelism 2
 .\scripts\capture-screenshots.ps1
+.\scripts\release-check.ps1 -SkipHdl -SkipNative
 git diff --check
 ```
 
@@ -39,6 +40,10 @@ parallel, repeats UI and backend suites, and exercises the backend's same-projec
 job lock. Parallelism is capped at four and defaults to two for laptop safety.
 GitHub Actions repeats platform-independent gates for every push and pull
 request.
+
+The screenshot script launches the current React Studio 2 frontend in browser
+preview mode and captures its real dark/light views with Microsoft Edge. It
+must not be replaced with captures from the retired Python companion UI.
 
 ## Automatic one-file installer release
 

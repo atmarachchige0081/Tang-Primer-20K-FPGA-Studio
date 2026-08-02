@@ -6,8 +6,13 @@ All notable user-facing changes are recorded here.
 
 - Kept packaged SPI teaching signals warning-free under the GitHub runner's
   Verilator version while preserving the verified `0xA5` loopback behavior.
+- Made VGA timing constants and the RISC-V decode scaffold explicitly
+  width-safe under strict Linux Verilator warning checks.
 - Split companion and native CI responsibilities so each clean job installs
   only the dependencies it executes, and enforced canonical Rust formatting.
+- Replaced every README screenshot still referenced from the retired Python v1
+  interface with reproducible 1440x900 captures of the current Studio 2
+  frontend in dark and light modes.
 
 ## 2.0.0 — 2026-08-02
 

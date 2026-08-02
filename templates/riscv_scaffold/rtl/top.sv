@@ -7,6 +7,6 @@ module top(input logic clk_27mhz, input logic [4:0] btn_n, output logic [5:0] le
     always_ff @(posedge clk_27mhz) if (!btn_n[0]) pc <= '0; else pc <= pc + 32'd4;
     rv32i_decode decoder(.instruction(32'h00100093),.opcode,.rd,.rs1,.rs2,.funct3,.immediate_i,.valid);
     assign decode_activity = ^{opcode, rs1, rs2, funct3, immediate_i};
-    assign led_n = ~{valid, rd[0], pc[5:3], decode_activity ^ ^btn_n[4:1]};
+    assign led_n = ~{valid, ^rd, pc[5:3], decode_activity ^ ^btn_n[4:1]};
 endmodule
 `default_nettype wire

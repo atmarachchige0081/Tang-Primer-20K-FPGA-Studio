@@ -12,7 +12,8 @@ const highlights = [
 ];
 
 export function ReleaseNotes(): React.JSX.Element | null {
-  const [open, setOpen] = useState(releaseNotesPending);
+  const capture = import.meta.env.DEV ? new URLSearchParams(window.location.search).get("capture") : null;
+  const [open, setOpen] = useState(() => capture === "release-notes" || (!capture && releaseNotesPending()));
   useEffect(() => {
     const reveal = () => setOpen(true);
     window.addEventListener("fpga-studio:release-notes", reveal);

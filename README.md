@@ -61,7 +61,7 @@ Run `npm run desktop:doctor` if Cargo is not yet visible in a new terminal.
 
 | Accessible dark mode | New accessible light mode |
 |---|---|
-| ![Tang Primer FPGA Studio dark workspace](docs/images/studio-main.png) | ![Tang Primer FPGA Studio light workspace](docs/images/studio-main-light.png) |
+| ![Tang FPGA Studio 2 dark workspace](docs/images/studio-main.png) | ![Tang FPGA Studio 2 light workspace](docs/images/studio-main-light.png) |
 
 The Studio 2 workspace uses calmer, more natural dark and light palettes, clearer
 human language, consistent spacing, and focused guided workflows. It includes
@@ -94,13 +94,11 @@ always be reopened from **Help → Release notes** or the action center.
 
 ### Guided Studio workflows
 
-| Select a testbench and waveform layout | Auto-detected read/write UART terminal |
+| Inspect real VCD signals in the integrated viewer | Auto-detected read/write UART terminal |
 |---|---|
-| ![Verification Center](docs/images/studio-verification-center.png) | ![Integrated UART terminal](docs/images/studio-uart-terminal.png) |
+| ![Integrated Studio 2 waveform viewer](docs/images/studio-waveform.png) | ![Integrated Studio 2 UART terminal](docs/images/studio-uart-terminal.png) |
 
-| Hardware setup without driver guesswork | Interactive first-project tutorial |
-|---|---|
-| ![Guided hardware setup](docs/images/studio-hardware-setup.png) | ![First-project tutorial](docs/images/studio-first-project-tutorial.png) |
+![Studio 2 hardware manager and connection guidance](docs/images/studio-hardware-setup.png)
 
 The New Project Wizard creates a complete, immediately verifiable project from
 the board-I/O or UART starting point. The Verification Center selects one
@@ -128,17 +126,13 @@ the diagram stays useful instead of becoming an unreadable wall of wires.
 
 ### Intelligent workspace
 
-| Project health, hierarchy, timing and readiness | Searchable command palette |
+| Project health, hierarchy, timing and readiness | Searchable smart action center |
 |---|---|
-| ![Project Insights dashboard](docs/images/studio-insights.png) | ![Searchable command palette](docs/images/studio-command-palette.png) |
+| ![Studio 2 Project Insights dashboard](docs/images/studio-insights.png) | ![Studio 2 searchable action center](docs/images/studio-command-palette.png) |
 
-| Searchable 72-pattern HDL reference | Pin and electrical-standard inspection |
-|---|---|
-| ![HDL Pattern Library](docs/images/studio-pattern-library.png) | ![Pin Assignment Inspector](docs/images/studio-pin-inspector.png) |
-
-| Pattern reference in dark mode | The same live dialog in light mode |
-|---|---|
-| ![Dark HDL Pattern Library](docs/images/studio-pattern-library.png) | ![Light HDL Pattern Library](docs/images/studio-pattern-library-light.png) |
+These images are reproducibly captured from the current React/Tauri Studio 2
+frontend—not the retired Python v1 interface—using
+`./scripts/capture-screenshots.ps1`.
 
 The Studio is local and offline after toolchain installation: it requires no
 account, sends no telemetry, contains projects inside the workspace, blocks
