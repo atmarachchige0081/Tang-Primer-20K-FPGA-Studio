@@ -1,7 +1,7 @@
 export type ThemeMode = "dark" | "light" | "system";
 export type Activity = "explorer" | "search" | "source" | "hardware" | "ip" | "extensions";
 export type BottomPanel = "problems" | "output" | "terminal" | "waveform";
-export type WorkbenchView = "editor" | "dashboard" | "netlist" | "waveform" | "hardware" | "uart" | "welcome";
+export type WorkbenchView = "editor" | "dashboard" | "analysis" | "verification" | "netlist" | "waveform" | "hardware" | "uart" | "welcome";
 export type BuildAction = "doctor" | "lint" | "sim" | "build" | "upload" | "flash" | "detect";
 
 export interface ProjectNode {
@@ -23,6 +23,8 @@ export interface Diagnostic {
   severity: "error" | "warning" | "info";
   source: string;
   message: string;
+  code?: string;
+  suggestion?: string;
   file?: string;
   line?: number;
   column?: number;
@@ -65,6 +67,56 @@ export interface BuildSummary {
   bitstreamBytes: number | null;
   worstSlackNs: number | null;
   updatedAt: string | null;
+  timingMet: boolean | null;
+  resources: ResourceUsage[];
+  clocks: ClockTiming[];
+  criticalPaths: CriticalPath[];
+}
+
+export interface ResourceUsage {
+  name: string;
+  label: string;
+  used: number;
+  total: number;
+}
+
+export interface ClockTiming {
+  name: string;
+  achievedMHz: number;
+  constraintMHz: number;
+  slackNs: number;
+  timingMet: boolean;
+}
+
+export interface CriticalPath {
+  source: string;
+  destination: string;
+  delayNs: number;
+  slackNs?: number;
+  segments: number;
+}
+
+export type VerificationStageStatus = "pass" | "fail" | "warning" | "notRun";
+
+export interface VerificationStage {
+  id: string;
+  label: string;
+  status: VerificationStageStatus;
+  detail: string;
+  durationMs?: number;
+  completedAt?: string;
+  artifacts: string[];
+}
+
+export interface VerificationSummary {
+  generatedAt: string;
+  projectUpdatedAt?: string;
+  stages: VerificationStage[];
+  passed: number;
+  warnings: number;
+  failed: number;
+  notRun: number;
+  nextAction: string;
 }
 
 export interface BuildHistoryEntry {
@@ -246,4 +298,31 @@ export interface HdlIndex {
   files: string[];
   symbols: HdlSymbol[];
   diagnostics: Diagnostic[];
+  modules: HdlModule[];
+  instances: HdlInstance[];
+  clockDomains: ClockDomain[];
+}
+
+export interface HdlModule {
+  name: string;
+  file: string;
+  line: number;
+  ports: string[];
+}
+
+export interface HdlInstance {
+  parentModule: string;
+  moduleName: string;
+  instanceName: string;
+  file: string;
+  line: number;
+}
+
+export interface ClockDomain {
+  moduleName: string;
+  clock: string;
+  edge: string;
+  reset?: string;
+  file: string;
+  line: number;
 }

@@ -161,6 +161,9 @@ pub struct HdlIndex {
     pub files: Vec<String>,
     pub symbols: Vec<HdlSymbol>,
     pub diagnostics: Vec<Diagnostic>,
+    pub modules: Vec<HdlModule>,
+    pub instances: Vec<HdlInstance>,
+    pub clock_domains: Vec<ClockDomain>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -172,6 +175,37 @@ pub struct HdlSymbol {
     pub line: u32,
     pub column: u32,
     pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HdlModule {
+    pub name: String,
+    pub file: String,
+    pub line: u32,
+    pub ports: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HdlInstance {
+    pub parent_module: String,
+    pub module_name: String,
+    pub instance_name: String,
+    pub file: String,
+    pub line: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClockDomain {
+    pub module_name: String,
+    pub clock: String,
+    pub edge: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reset: Option<String>,
+    pub file: String,
+    pub line: u32,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -206,6 +240,10 @@ pub struct Diagnostic {
     pub severity: DiagnosticSeverity,
     pub source: String,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggestion: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub file: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -257,6 +295,88 @@ pub struct BuildSummary {
     pub bitstream_bytes: Option<u64>,
     pub worst_slack_ns: Option<f64>,
     pub updated_at: Option<String>,
+    pub timing_met: Option<bool>,
+    pub resources: Vec<ResourceUsage>,
+    pub clocks: Vec<ClockTiming>,
+    pub critical_paths: Vec<CriticalPath>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceUsage {
+    pub name: String,
+    pub label: String,
+    pub used: u64,
+    pub total: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClockTiming {
+    pub name: String,
+    pub achieved_m_hz: f64,
+    pub constraint_m_hz: f64,
+    pub slack_ns: f64,
+    pub timing_met: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CriticalPath {
+    pub source: String,
+    pub destination: String,
+    pub delay_ns: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slack_ns: Option<f64>,
+    pub segments: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VerificationSummary {
+    pub generated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_updated_at: Option<String>,
+    pub stages: Vec<VerificationStage>,
+    pub passed: usize,
+    pub warnings: usize,
+    pub failed: usize,
+    pub not_run: usize,
+    pub next_action: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VerificationStage {
+    pub id: String,
+    pub label: String,
+    pub status: VerificationStageStatus,
+    pub detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u128>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+    pub artifacts: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VerificationStageStatus {
+    Pass,
+    Fail,
+    Warning,
+    NotRun,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HardwareVerificationRecord {
+    pub schema_version: u32,
+    pub passed: bool,
+    pub note: String,
+    pub recorded_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bitstream_updated_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

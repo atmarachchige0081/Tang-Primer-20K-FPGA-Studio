@@ -10,13 +10,14 @@ mod project;
 mod reports;
 mod runner;
 mod security;
+mod verification;
 mod waveform;
 
 use hardware::SerialRegistry;
 use models::{
     BoardProfile, BuildAction, BuildHistoryEntry, BuildSummary, CommandResult, GitStatus, HdlIndex,
-    HdlPattern, NetlistGraph, PluginInfo, ProjectTemplate, SerialDevice, WaveformData,
-    WorkspaceSnapshot,
+    HdlPattern, NetlistGraph, PluginInfo, ProjectTemplate, SerialDevice, VerificationSummary,
+    WaveformData, WorkspaceSnapshot,
 };
 use runner::JobRegistry;
 use tauri::{AppHandle, State};
@@ -135,6 +136,30 @@ async fn read_build_history(
 }
 
 #[tauri::command]
+async fn read_verification_summary(
+    root: String,
+    project: String,
+) -> Result<VerificationSummary, String> {
+    blocking("Verification summary", move || {
+        verification::summary(&root, &project)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn record_hardware_verification(
+    root: String,
+    project: String,
+    passed: bool,
+    note: String,
+) -> Result<VerificationSummary, String> {
+    blocking("Hardware verification", move || {
+        verification::record_hardware(&root, &project, passed, &note)
+    })
+    .await
+}
+
+#[tauri::command]
 async fn list_serial_devices() -> Result<Vec<SerialDevice>, String> {
     blocking("Serial device scan", hardware::serial_devices).await
 }
@@ -218,6 +243,8 @@ pub fn run() -> Result<(), String> {
             cancel_job,
             read_build_summary,
             read_build_history,
+            read_verification_summary,
+            record_hardware_verification,
             list_serial_devices,
             launch_zadig,
             connect_serial,

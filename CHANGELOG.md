@@ -2,6 +2,81 @@
 
 All notable user-facing changes are recorded here.
 
+## 2.1.0 — 2026-08-08
+
+### Added
+
+- Added a native RTL Analysis workspace with stable finding codes, source
+  locations, plain-language explanations, suggested fixes, severity/search
+  filters, module hierarchy, instances, and detected clock/reset domains.
+- Added conservative checks for duplicate or missing modules, definitely unused
+  internal signals, multiple continuous drivers, direct sized-literal
+  truncation, continuous combinational self-loops, reset sensitivity/polarity
+  conflicts, and explicit logic-generated clocks.
+- Added an evidence-driven Verification Center covering live analysis, lint,
+  simulation, synthesis/place-and-route, timing, resource fit, bitstream, JTAG,
+  programming, and explicit hardware behavior.
+- Added user-recorded hardware observations with atomic project-local storage.
+  JTAG detection and programming success remain distinct from functional proof.
+- Added complete nextpnr clock and utilization parsing plus the eight longest
+  reported critical paths, timing slack, resource labels, and responsive tables.
+
+### Changed
+
+- Build Insights now shows every reported clock and resource class instead of
+  only the first clock plus LUT/FF totals.
+- Verification evidence becomes a warning after a relevant source or bitstream
+  change, so an old pass is not presented as current.
+- Expanded the toolbar, menus, and `Ctrl+K` action center with Analyze and Verify
+  navigation and clearer recommended next actions.
+- Refined the new intelligence surfaces for natural dark/light presentation,
+  compact laptop layouts, loading skeletons, empty/error states, and keyboard-
+  accessible controls.
+
+### Fixed
+
+- Build report status now reflects timing failure instead of marking every
+  readable timing report as passed.
+- Timing summaries now pair achieved frequency with its actual clock constraint
+  and calculate path slack from real nextpnr delays.
+- Constrained the main flex workspace width so dense analysis and verification
+  cards do not render behind the right edge on 1440-pixel displays.
+- Hardware evidence can be updated repeatedly on Windows using a recoverable
+  atomic replace instead of failing when the record already exists.
+- Updated the pinned HTML sanitizer and transitive ID generator so the shipped
+  frontend dependency graph reports zero known npm vulnerabilities.
+
+### Verified
+
+- Native frontend production build and 19 Vitest checks; 34 Rust HDL, report,
+  verification, parser, security, package, and concurrency checks; 34 Python
+  compatibility checks; zero-vulnerability npm audit; and strict Rust
+  formatting and Clippy enforcement.
+- The maintained LED/PWM, UART terminal, serial command console, and starter
+  projects produce no blocking live-analysis findings.
+- Dark and light RTL-analysis screenshots plus the Verification Center are
+  reproducibly captured from the current React frontend at 1440×900.
+- The full local release check and three-round stress suite passed, including
+  repeat UI/store and job-lock tests plus parallel full bitstream builds for all
+  five distinct Tang device families at laptop-safe parallelism two.
+- The maintained Primer project produced a fresh 4,620,140-byte uncompressed
+  bitstream and achieved 250.63 MHz against its 27 MHz constraint. The optimized
+  2.1.0 native executable, NSIS installer, and packaged headless smoke test pass.
+- Live Primer 20K Dock acceptance passed on Windows: Interface 0 JTAG ID
+  `0x81b`, two uncompressed volatile SRAM uploads to 100%, Interface 1 preserved
+  as COM15, and a 115200-baud `PING`/`PONG - your UART link works!` round trip
+  from the programmed serial-command design. Persistent flash was not written.
+
+### Limitations
+
+- Live analysis is deliberately conservative and does not claim arbitrary CDC,
+  latch, FSM reachability, or procedural multiple-driver proof. Use lint,
+  simulation, synthesis, timing, and specialist CDC/formal tools for those jobs.
+- Hardware behavior requires a user observation; the application cannot infer
+  correct LEDs, UART replies, or external I/O solely from JTAG/programmer output.
+- The installer is provenance-attested but is not Authenticode-signed by a
+  trusted commercial Windows publisher, so Windows may show Unknown publisher.
+
 ## 2.0.1 — 2026-08-02
 
 - Kept packaged SPI teaching signals warning-free under the GitHub runner's

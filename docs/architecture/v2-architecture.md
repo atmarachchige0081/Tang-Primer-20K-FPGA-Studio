@@ -6,12 +6,12 @@ FPGA Studio v2 is a local-first desktop application for learning, building, simu
 
 ```text
 React workspace (untrusted webview)
-  editor | explorer | problems | console | dashboard | waveform | hardware
+  editor | HDL analysis | verification | dashboard | waveform | hardware
                          |
               narrow typed Tauri commands
                          |
 Rust desktop host (trusted boundary)
-  path guard | process runner | project index | parsers | serial manager
+  path guard | process runner | HDL analyzer | report parsers | serial manager
                          |
 Compatibility core: fpga.ps1 + OSS CAD Suite
   Verilator | Icarus | Yosys | nextpnr | gowin_pack | openFPGALoader
@@ -37,8 +37,21 @@ The React application never receives a general shell, filesystem, or process API
 3. Editing stays in the webview until an explicit save invokes an atomic native write.
 4. Build actions launch `powershell -NoProfile -File fpga.ps1` with an allow-listed action and project path.
 5. Output is streamed to the console and converted into structured diagnostics.
-6. Completed jobs are stored in `.fpga-studio/history.json`; generated tool files stay under `build/`.
-7. Timing and utilization reports feed the dashboard and comparison views.
+6. Completed jobs are stored in `.fpga-studio/build-history.json`; generated tool files stay under `build/`.
+7. The verification service compares source modification times, job history, and generated artifacts so stale evidence is never shown as current.
+8. nextpnr timing, critical-path, clock, and complete utilization reports feed Build Insights.
+9. Functional hardware behavior is recorded only after an explicit user observation in `.fpga-studio/hardware-verification.json`; JTAG detection alone never becomes a functional pass.
+
+## Design-intelligence boundaries
+
+The live Rust analyzer strips comments and strings, indexes modules, instances,
+ports, and clock/reset sensitivity domains, then reports only conservative
+cases with stable `HDLxxx` codes: duplicate or missing modules, definitely
+unused internal signals, multiple continuous drivers, direct sized-literal
+truncation, continuous combinational self-loops, reset edge/polarity conflicts,
+and explicit logic-generated clocks. It is an immediate teaching and navigation
+layer—not a replacement for Verilator, Icarus, Yosys, nextpnr, formal tools, or
+an expert CDC analysis flow.
 
 ## Security boundaries
 
@@ -58,7 +71,7 @@ The React application never receives a general shell, filesystem, or process API
 | Warm project reopen | under 1 second after window creation |
 | Input response | under 50 ms |
 | Project tree refresh | under 500 ms for 10,000 files |
-| Dashboard parse | under 250 ms for normal reports |
+| Analysis and dashboard parse | under 250 ms for normal projects/reports |
 | Waveform initial view | progressive; first signals under 1 second |
 
 Large reports and waveform parsing run outside the UI thread. File trees are lazy and cached. Log views virtualize output and keep a bounded in-memory history.

@@ -11,12 +11,15 @@ import { ProjectWizard } from "./components/ProjectWizard";
 import { ReleaseNotes } from "./components/ReleaseNotes";
 import { QuickLauncher } from "./components/QuickLauncher";
 import { DashboardView, HardwareView, NetlistView, UartView, WaveformView, WelcomeView } from "./components/WorkbenchViews";
+import { AnalysisView } from "./components/AnalysisView";
+import { VerificationView } from "./components/VerificationView";
 import { bridge } from "./lib/bridge";
 import { useWorkbench } from "./store/workbench";
 import type { BuildAction, BuildEvent, WorkbenchView } from "./types";
 
-const viewComponents: Record<Exclude<WorkbenchView, "editor">, React.ComponentType> = {
+const viewComponents: Record<Exclude<WorkbenchView, "editor" | "verification">, React.ComponentType> = {
   dashboard: DashboardView,
+  analysis: AnalysisView,
   netlist: NetlistView,
   waveform: WaveformView,
   hardware: HardwareView,
@@ -94,11 +97,14 @@ function Workbench(): React.JSX.Element {
       netlist: "netlist",
       hardware: "hardware",
       uart: "uart",
+      analysis: "analysis",
+      verification: "verification",
       launcher: "welcome",
       "release-notes": "welcome",
     };
     const requestedView = captureViews[capture];
     if (requestedView) store.setView(requestedView);
+    if ((capture === "analysis" || capture === "verification") && store.bottomOpen) store.toggleBottom();
     if (capture === "launcher") {
       window.setTimeout(() => window.dispatchEvent(new Event("fpga-studio:command-center")), 150);
     }
@@ -116,6 +122,8 @@ function Workbench(): React.JSX.Element {
       store.setDiagnostics(result.diagnostics);
       store.appendOutput({ jobId: result.jobId, phase: action, stream: result.success ? "system" : "stderr", message: result.success ? `Completed in ${(result.durationMs / 1000).toFixed(1)}s` : result.failureMessage ?? `${action} did not complete. Open Problems for details.`, timestamp: new Date().toISOString() });
       store.setBuild(await bridge.buildSummary(store.root, store.projectPath));
+      window.dispatchEvent(new Event("fpga-studio:analysis-refresh"));
+      window.dispatchEvent(new Event("fpga-studio:verification-refresh"));
     } catch (error) {
       store.appendOutput({ jobId: optimisticId, phase: action, stream: "stderr", message: error instanceof Error ? error.message : String(error), timestamp: new Date().toISOString() });
     } finally {
@@ -130,13 +138,19 @@ function Workbench(): React.JSX.Element {
     await bridge.writeText(store.root, active.path, active.content);
     store.markSaved(active.path);
     store.appendOutput({ jobId: "editor", phase: "save", stream: "system", message: `Saved ${active.path}`, timestamp: new Date().toISOString() });
+    window.dispatchEvent(new Event("fpga-studio:analysis-refresh"));
+    window.dispatchEvent(new Event("fpga-studio:verification-refresh"));
   }, [store]);
 
   const stop = useCallback(async () => {
     if (store.runningJob) await bridge.cancel(store.runningJob);
   }, [store.runningJob]);
 
-  const View = store.view === "editor" ? EditorWorkspace : viewComponents[store.view];
+  const content = store.view === "editor"
+    ? <EditorWorkspace />
+    : store.view === "verification"
+      ? <VerificationView onRun={(action) => void run(action)} />
+      : (() => { const View = viewComponents[store.view]; return <View />; })();
   return <><div className="app-shell">
     <TitleBar onRun={(action) => void run(action)} onSave={() => void save()} />
     <div className="workbench-shell">
@@ -144,7 +158,7 @@ function Workbench(): React.JSX.Element {
       {store.sidebarOpen && <Sidebar />}
       <main className="main-area">
         <CommandBar onRun={(action) => void run(action)} onSave={() => void save()} onStop={() => void stop()} />
-        <div className="content-and-dock"><div className="content-surface"><View /></div><BottomDock /></div>
+        <div className="content-and-dock"><div className="content-surface">{content}</div><BottomDock /></div>
       </main>
     </div>
     <StatusBar />

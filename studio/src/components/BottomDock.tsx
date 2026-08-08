@@ -27,7 +27,7 @@ export function BottomDock(): React.JSX.Element {
 function Problems(): React.JSX.Element {
   const diagnostics = useWorkbench((state) => state.diagnostics);
   if (!diagnostics.length) return <div className="empty-dock"><CheckCircle2 size={18}/><span>No problems detected in the active project.</span></div>;
-  return <div className="problem-list">{diagnostics.map((item, index) => <div className={`problem-row ${item.severity}`} key={`${item.message}-${index}`}>{item.severity === "error" ? <CircleX size={14}/> : item.severity === "warning" ? <CircleAlert size={14}/> : <Info size={14}/>}<span>{item.message}</span><code>{item.file}{item.line ? `:${item.line}` : ""}</code><small>{item.source}</small></div>)}</div>;
+  return <div className="problem-list">{diagnostics.map((item, index) => <div className={`problem-row ${item.severity}`} title={item.suggestion} key={`${item.message}-${index}`}>{item.severity === "error" ? <CircleX size={14}/> : item.severity === "warning" ? <CircleAlert size={14}/> : <Info size={14}/>}<span>{item.message}</span><code>{item.file}{item.line ? `:${item.line}` : ""}</code><small>{item.code ?? item.source}</small></div>)}</div>;
 }
 
 function Output(): React.JSX.Element {

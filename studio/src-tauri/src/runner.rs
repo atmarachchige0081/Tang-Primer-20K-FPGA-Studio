@@ -316,6 +316,8 @@ fn parse_diagnostics(lines: &[String]) -> Vec<Diagnostic> {
                         || line.trim().to_owned(),
                         |value| value.as_str().trim().to_owned(),
                     ),
+                code: None,
+                suggestion: None,
                 file: captures
                     .as_ref()
                     .and_then(|value| value.name("file"))

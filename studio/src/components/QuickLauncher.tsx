@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Bug, CircuitBoard, FilePlus2, Moon, Network, Play, Radio, Save, Search, Sun, Waves, X } from "lucide-react";
+import { Activity, Bug, CircuitBoard, FilePlus2, ListChecks, Moon, Network, Play, Radio, Save, ScanSearch, Search, Sun, Waves, X } from "lucide-react";
 import { useWorkbench } from "../store/workbench";
 import type { BuildAction, WorkbenchView } from "../types";
 
@@ -49,7 +49,7 @@ export function QuickLauncher({ onRun, onSave }: Props): React.JSX.Element | nul
   const recommended: LauncherAction = store.diagnostics.some((item) => item.severity === "error")
     ? { id: "problems", label: "Review errors before continuing", detail: "Open Problems and fix the first reported issue", group: "Recommended", icon: Bug, keywords: "errors problems diagnostics fix", run: () => store.setBottomPanel("problems") }
     : store.build?.status === "passed"
-      ? { id: "hardware-next", label: "Inspect the connected hardware", detail: "Your latest build passed; verify the target before SRAM upload", group: "Recommended", icon: CircuitBoard, keywords: "board jtag detect hardware upload", run: () => go("hardware") }
+      ? { id: "verification-next", label: "Review the verification evidence", detail: "Your latest build passed; check freshness, JTAG, and hardware stages", group: "Recommended", icon: ListChecks, keywords: "verification pipeline evidence hardware", run: () => go("verification") }
       : { id: "simulate-next", label: "Simulate before building", detail: "Fastest way to catch logic mistakes and inspect signals", group: "Recommended", icon: Play, keywords: "simulation beginner next verify", run: () => onRun("sim") };
 
   const actions = useMemo<LauncherAction[]>(() => [
@@ -60,6 +60,8 @@ export function QuickLauncher({ onRun, onSave }: Props): React.JSX.Element | nul
     { id: "simulate", label: "Run simulation", detail: "Execute the self-checking testbench", group: "Build", icon: Play, keywords: "sim testbench iverilog", run: () => onRun("sim") },
     { id: "build", label: "Build bitstream", detail: "Synthesize, place, route, and pack", group: "Build", icon: Activity, keywords: "build synthesize pnr bitstream", run: () => onRun("build") },
     { id: "insights", label: "Open build insights", detail: "Timing, utilization, and build history", group: "Explore", icon: Activity, keywords: "dashboard timing resources", run: () => go("dashboard") },
+    { id: "analysis", label: "Analyze RTL architecture", detail: "Provable HDL findings, hierarchy, clocks, and resets", group: "Explore", icon: ScanSearch, keywords: "analysis intelligence modules clocks reset findings", run: () => go("analysis") },
+    { id: "verification", label: "Open verification center", detail: "Honest pass, fail, warning, and not-run evidence", group: "Explore", icon: ListChecks, keywords: "verification pipeline evidence stages", run: () => go("verification") },
     { id: "waveform", label: "Open waveform viewer", detail: "Inspect real VCD signals and scopes", group: "Explore", icon: Waves, keywords: "wave vcd signal simulation", run: () => go("waveform") },
     { id: "netlist", label: "Open netlist viewer", detail: "Explore synthesized cells and connections", group: "Explore", icon: Network, keywords: "netlist yosys cells schematic", run: () => go("netlist") },
     { id: "hardware", label: "Open hardware manager", detail: "Discover JTAG and serial interfaces", group: "Explore", icon: CircuitBoard, keywords: "board jtag device detect", run: () => go("hardware") },

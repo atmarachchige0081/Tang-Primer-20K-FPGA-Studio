@@ -17,6 +17,7 @@ import type {
   SerialDevice,
   SerialEvent,
   WaveformData,
+  VerificationSummary,
   WorkspaceSnapshot,
 } from "../types";
 
@@ -127,7 +128,7 @@ export const bridge = {
       { name: "clk", kind: "input", file: "rtl/top.sv", line: 2, column: 16, detail: "input declaration" },
       { name: "led", kind: "output", file: "rtl/top.sv", line: 4, column: 16, detail: "output declaration" },
       { name: "counter", kind: "logic", file: "rtl/top.sv", line: 6, column: 16, detail: "logic declaration" },
-    ], diagnostics: [] };
+    ], diagnostics: [], modules: [{ name: "top", file: "rtl/top.sv", line: 1, ports: ["clk", "reset_n", "led"] }], instances: [], clockDomains: [{ moduleName: "top", clock: "clk", edge: "posedge", reset: "reset_n", file: "rtl/top.sv", line: 8 }] };
   },
 
   async createProject(root: string, name: string, templateId: string, displayName: string, boardId: string): Promise<WorkspaceSnapshot> {
@@ -147,7 +148,49 @@ export const bridge = {
 
   async buildSummary(root: string, project: string): Promise<BuildSummary> {
     if (isDesktop()) return invoke<BuildSummary>("read_build_summary", { root, project });
-    return { status: "ready", fmaxMHz: 72.4, targetMHz: 27, lutUsed: 1842, lutTotal: 20736, registersUsed: 1106, registersTotal: 15552, bitstreamBytes: 142336, worstSlackNs: 8.12, updatedAt: new Date().toISOString() };
+    return {
+      status: "passed", fmaxMHz: 72.4, targetMHz: 27, lutUsed: 1842, lutTotal: 20736,
+      registersUsed: 1106, registersTotal: 15552, bitstreamBytes: 142336, worstSlackNs: 23.22,
+      updatedAt: new Date().toISOString(), timingMet: true,
+      resources: [
+        { name: "LUT4", label: "Logic LUTs", used: 1842, total: 20736 },
+        { name: "DFF", label: "Flip-flops", used: 1106, total: 15552 },
+        { name: "BSRAM", label: "Block RAM", used: 2, total: 46 },
+        { name: "IOB", label: "I/O blocks", used: 12, total: 384 },
+        { name: "rPLL", label: "PLLs", used: 0, total: 4 },
+      ],
+      clocks: [{ name: "top.clk", achievedMHz: 72.4, constraintMHz: 27, slackNs: 23.22, timingMet: true }],
+      criticalPaths: [{ source: "posedge top.clk", destination: "posedge top.clk", delayNs: 13.81, slackNs: 23.22, segments: 9 }],
+    };
+  },
+
+  async verificationSummary(root: string, project: string): Promise<VerificationSummary> {
+    if (isDesktop()) return invoke<VerificationSummary>("read_verification_summary", { root, project });
+    const now = new Date().toISOString();
+    return {
+      generatedAt: now, projectUpdatedAt: now, passed: 7, warnings: 0, failed: 0, notRun: 3,
+      nextAction: "Connect the board and run Detect JTAG.",
+      stages: [
+        { id: "analysis", label: "Design analysis", status: "pass", detail: "1 HDL file, 1 module, and 1 clock domain scanned cleanly.", completedAt: now, artifacts: ["rtl/top.sv"] },
+        { id: "lint", label: "Toolchain lint", status: "pass", detail: "The latest lint run completed successfully in 740 ms.", durationMs: 740, completedAt: now, artifacts: [] },
+        { id: "simulation", label: "Simulation", status: "pass", detail: "Self-checking simulation passed.", durationMs: 1220, completedAt: now, artifacts: ["build/waves.vcd"] },
+        { id: "synthesis", label: "Synthesis & place/route", status: "pass", detail: "Implementation completed successfully.", durationMs: 8200, completedAt: now, artifacts: ["build/top.json", "build/top_pnr.json"] },
+        { id: "timing", label: "Timing analysis", status: "pass", detail: "All constrained clocks pass; worst slack +23.220 ns.", completedAt: now, artifacts: ["build/timing.json"] },
+        { id: "resources", label: "Resource fit", status: "pass", detail: "Device utilization fits the selected board.", completedAt: now, artifacts: ["build/timing.json"] },
+        { id: "bitstream", label: "Bitstream", status: "pass", detail: "Programming file is current and structurally valid.", completedAt: now, artifacts: ["build/top.fs"] },
+        { id: "jtag", label: "JTAG link", status: "notRun", detail: "Run Detect with the board connected.", artifacts: [] },
+        { id: "programming", label: "Board programming", status: "notRun", detail: "Use SRAM for a reversible hardware test.", artifacts: [] },
+        { id: "hardware", label: "Hardware behavior", status: "notRun", detail: "Record the LEDs, UART, or other behavior you observe.", artifacts: [] },
+      ],
+    };
+  },
+
+  async recordHardwareVerification(root: string, project: string, passed: boolean, note: string): Promise<VerificationSummary> {
+    if (isDesktop()) return invoke<VerificationSummary>("record_hardware_verification", { root, project, passed, note });
+    const current = await this.verificationSummary(root, project);
+    const hardware = { id: "hardware", label: "Hardware behavior", status: passed ? "pass" as const : "fail" as const, detail: `${passed ? "User-confirmed board behavior" : "User-recorded hardware issue"}: ${note}`, completedAt: new Date().toISOString(), artifacts: [".fpga-studio/hardware-verification.json"] };
+    const stages = [...current.stages.filter((stage) => stage.id !== "hardware"), hardware];
+    return { ...current, stages, passed: stages.filter((stage) => stage.status === "pass").length, failed: stages.filter((stage) => stage.status === "fail").length, notRun: stages.filter((stage) => stage.status === "notRun").length };
   },
 
   async buildHistory(root: string, project: string): Promise<BuildHistoryEntry[]> {

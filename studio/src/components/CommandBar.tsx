@@ -1,4 +1,4 @@
-import { BarChart3, Bug, CircuitBoard, Cpu, LoaderCircle, Network, Play, Radio, Rocket, Save, Square, Upload, Waves } from "lucide-react";
+import { BarChart3, Bug, CircuitBoard, Cpu, ListChecks, LoaderCircle, Network, Play, Radio, Rocket, Save, ScanSearch, Square, Upload, Waves } from "lucide-react";
 import type { BuildAction, WorkbenchView } from "../types";
 import { useWorkbench } from "../store/workbench";
 
@@ -19,6 +19,8 @@ export function CommandBar({ onRun, onSave, onStop }: Props): React.JSX.Element 
         {runningJob && <button className="stop-tool" onClick={onStop}><Square size={14} /> Stop</button>}
       </div>
       <div className="command-group view-tools">
+        {nav("analysis", "Analyze", ScanSearch)}
+        {nav("verification", "Verify", ListChecks)}
         {nav("dashboard", "Insights", BarChart3)}
         {nav("waveform", "Waveform", Waves)}
         {nav("netlist", "Netlist", Network)}

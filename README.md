@@ -3,7 +3,7 @@
 [![Quality gates](https://github.com/atmarachchige0081/Tang-FPGA-Studio/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/atmarachchige0081/Tang-FPGA-Studio/actions/workflows/quality-gates.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-6c63ff.svg)](LICENSE)
 [![Desktop: Tauri + Rust](https://img.shields.io/badge/desktop-Tauri%20%2B%20Rust-4f9cff.svg)](studio/)
-[![Release: v2.0.1](https://img.shields.io/badge/release-v2.0.1-42d392.svg)](CHANGELOG.md)
+[![Release: v2.1.0](https://img.shields.io/badge/release-v2.1.0-42d392.svg)](CHANGELOG.md)
 
 An open-source, beginner-friendly FPGA IDE and development environment for
 Sipeed Tang Nano and Tang Primer boards. Simulate, inspect waveforms, lint,
@@ -63,6 +63,30 @@ Run `npm run desktop:doctor` if Cargo is not yet visible in a new terminal.
 |---|---|
 | ![Tang FPGA Studio 2 dark workspace](docs/images/studio-main.png) | ![Tang FPGA Studio 2 light workspace](docs/images/studio-main-light.png) |
 
+## Studio 2.1: Design Intelligence
+
+| Conservative RTL analysis in dark mode | The same analysis in accessible light mode |
+|---|---|
+| ![Studio 2.1 RTL analysis and architecture](docs/images/studio-analysis.png) | ![Studio 2.1 RTL analysis light theme](docs/images/studio-analysis-light.png) |
+
+![Studio 2.1 evidence-driven verification center](docs/images/studio-verification-center.png)
+
+Studio 2.1 connects source understanding to implementation and hardware
+evidence. **Analyze** shows stable diagnostic codes, an explanation and a
+suggested fix for findings the live scanner can prove, plus module hierarchy,
+instances, and clock/reset domains. It deliberately does not claim to prove
+arbitrary clock-domain crossings, FSM reachability, or procedural behavior;
+Verilator, simulation, synthesis, and timing remain the authoritative deeper
+checks.
+
+**Verify** presents every workflow stage as `PASS`, `FAIL`, `WARNING`, or
+`NOT RUN`. Results become warnings when source changes make earlier lint,
+simulation, timing, bitstream, or hardware evidence stale. JTAG detection proves
+the programming link, SRAM upload proves programming, and hardware behavior
+passes only after the user records what was actually observed. Build Insights
+now exposes every nextpnr clock and resource class along with the longest real
+place-and-route critical paths.
+
 The Studio 2 workspace uses calmer, more natural dark and light palettes, clearer
 human language, consistent spacing, and focused guided workflows. It includes
 custom iconography, searchable navigation, open-file tabs, symbol definitions
@@ -101,8 +125,10 @@ always be reopened from **Help → Release notes** or the action center.
 ![Studio 2 hardware manager and connection guidance](docs/images/studio-hardware-setup.png)
 
 The New Project Wizard creates a complete, immediately verifiable project from
-the board-I/O or UART starting point. The Verification Center selects one
-testbench and GTKWave layout and summarizes visible PASS/FAIL assertion lines.
+the board-I/O or UART starting point. The Verification Center combines the
+latest lint, simulation, synthesis, timing, resource, bitstream, JTAG,
+programming, and explicit hardware-observation evidence without turning a
+missing step into a false pass.
 Tool errors that include a source location are clickable in the console. The
 hardware guide clearly separates JTAG Interface 0 from UART Interface 1, while
 the UART terminal auto-detects COM ports and supports ASCII/hex display,
@@ -118,11 +144,10 @@ beginner command pad for the friendly command-console lesson.
 ![Searchable synthesized netlist viewer](docs/images/studio-netlist-viewer.png)
 
 Press **Netlist** after a successful Build to inspect the actual Yosys
-implementation in a separate popup. The viewer provides a categorized overview,
-a searchable table of every synthesized component, type filtering, zoom and
-pan controls, one-hop fan-in/fan-out views, named-net labels, and double-click
-navigation back to RTL source locations. Large designs are summarized first so
-the diagram stays useful instead of becoming an unreadable wall of wires.
+implementation in its dedicated workspace view. Search cells and categories,
+follow real net connections, zoom and pan, and use the minimap for orientation.
+Large designs are bounded before layout so the diagram stays responsive instead
+of becoming an unreadable wall of wires.
 
 ### Intelligent workspace
 

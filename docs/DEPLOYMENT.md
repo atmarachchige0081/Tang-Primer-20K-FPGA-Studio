@@ -47,10 +47,9 @@ must not be replaced with captures from the retired Python companion UI.
 
 ## Automatic one-file installer release
 
-Studio 2 preview builds use the NSIS `.exe` bundle. WiX/MSI does not accept
-textual semantic-version prerelease identifiers such as `alpha.1`; MSI can be
-re-enabled for the final numeric `2.0.0` version. NSIS remains the maintained
-one-file beginner installation path.
+Studio 2 releases use the NSIS `.exe` bundle as the maintained one-file
+beginner installation path. WiX/MSI is not part of the supported release gate;
+adding it would require a separate clean-runner packaging and upgrade test.
 
 The installer repository owns the Windows packaging workflow. On an upstream
 Studio release it performs the following controlled sequence:
@@ -77,6 +76,9 @@ The application stores project-local state under `.fpga-studio/`:
 - `workspace-state.json` remembers the active project using atomic replace and
   a backup file.
 - each project's `.fpga-studio/build-history.json` stores local build history.
+- each project's `.fpga-studio/hardware-verification.json` stores an explicit
+  user observation and the exact bitstream timestamp it applies to; later
+  source or bitstream changes make that evidence stale.
 
 Theme and release-note preferences use the WebView profile's local storage.
 Native startup failures and panics are appended to
